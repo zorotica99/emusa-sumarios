@@ -1,0 +1,98 @@
+.student-report-filter {
+  max-width: 520px;
+}
+
+.student-report-empty {
+  margin-top: 24px;
+  color: #64748b;
+  text-align: center;
+}
+
+.student-report-heading {
+  margin: 28px 0 18px;
+}
+
+.student-report-heading h2 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.student-report-heading p {
+  margin: 6px 0 0;
+  color: #64748b;
+}
+
+.student-report-cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.student-report-card {
+  display: grid;
+  gap: 8px;
+  padding: 20px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgb(15 23 42 / 5%);
+}
+
+.student-report-card__icon {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  margin-bottom: 5px;
+  place-items: center;
+  border-radius: 12px;
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.student-report-card span {
+  color: #64748b;
+  font-size: 14px;
+}
+
+.student-report-card strong {
+  font-size: 30px;
+}
+
+.student-report-history {
+  margin-top: 24px;
+}
+
+.attendance-status {
+  display: inline-flex;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.attendance-status--presente {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.attendance-status--falta {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.attendance-status--falta-justificada {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+@media (max-width: 1100px) {
+  .student-report-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .student-report-cards {
+    grid-template-columns: 1fr;
+  }
+}

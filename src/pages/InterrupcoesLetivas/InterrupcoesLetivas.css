@@ -1,0 +1,15 @@
+.school-break-type {
+  display: inline-flex;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #fff7ed;
+  color: #c2410c;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.panel h2 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}

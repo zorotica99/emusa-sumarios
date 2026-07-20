@@ -1,0 +1,65 @@
+.student-page-layout {
+  display: grid;
+  grid-template-columns: minmax(340px, 440px) minmax(0, 1fr);
+  align-items: start;
+  gap: 24px;
+}
+
+.student-form-panel > h2 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.student-form-section {
+  display: grid;
+  gap: 18px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.student-form-section:last-of-type {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.student-form-section > header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.student-form-section > header > span {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 10px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.student-form-section > header strong,
+.student-form-section > header p {
+  display: block;
+}
+
+.student-form-section > header strong {
+  color: #172033;
+  font-size: 15px;
+}
+
+.student-form-section > header p {
+  margin: 3px 0 0;
+  color: #64748b;
+  font-size: 12px;
+}
+
+@media (max-width: 1150px) {
+  .student-page-layout {
+    grid-template-columns: 1fr;
+  }
+}

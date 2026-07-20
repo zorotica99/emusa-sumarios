@@ -1,0 +1,66 @@
+.school-year-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 520px) minmax(280px, 1fr);
+  align-items: start;
+  gap: 24px;
+}
+
+.school-year-layout .panel h2 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.school-year-summary {
+  display: grid;
+  min-height: 310px;
+  place-items: center;
+  align-content: center;
+  padding: 36px;
+  border: 1px solid #bfdbfe;
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at top right, #dbeafe, transparent 45%),
+    #ffffff;
+  text-align: center;
+  box-shadow: 0 10px 30px rgb(15 23 42 / 6%);
+}
+
+.school-year-summary__icon {
+  display: grid;
+  width: 66px;
+  height: 66px;
+  margin-bottom: 18px;
+  place-items: center;
+  border-radius: 18px;
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.school-year-summary > span {
+  color: #64748b;
+  font-size: 14px;
+}
+
+.school-year-summary h2 {
+  margin: 8px 0;
+  color: #172033;
+  font-size: 30px;
+}
+
+.school-year-summary p {
+  margin: 0;
+  color: #64748b;
+}
+
+.alert--success {
+  border: 1px solid #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+@media (max-width: 900px) {
+  .school-year-layout {
+    grid-template-columns: 1fr;
+  }
+}
