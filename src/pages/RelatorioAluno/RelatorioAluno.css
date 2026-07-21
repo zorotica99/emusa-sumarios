@@ -1,73 +1,281 @@
 .student-report-filter {
-  max-width: 520px;
+  display: grid;
+  grid-template-columns:
+    minmax(220px, 1fr)
+    minmax(170px, 220px)
+    minmax(170px, 220px)
+    auto
+    auto;
+  align-items: end;
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.student-report-filter .button {
+  white-space: nowrap;
 }
 
 .student-report-empty {
-  margin-top: 24px;
-  color: #64748b;
+  display: grid;
+  min-height: 320px;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  color: #94a3b8;
   text-align: center;
 }
 
-.student-report-heading {
-  margin: 28px 0 18px;
+.student-report-empty strong {
+  color: #172033;
+  font-size: 20px;
 }
 
-.student-report-heading h2 {
+.student-report-empty p {
   margin: 0;
-  font-size: 24px;
 }
 
-.student-report-heading p {
-  margin: 6px 0 0;
+.student-report-print-header {
+  display: none;
+}
+
+.student-report-profile {
+  display: grid;
+  grid-template-columns:
+    76px
+    minmax(220px, 0.7fr)
+    minmax(0, 1.5fr);
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.student-report-profile__avatar {
+  display: grid;
+  width: 72px;
+  height: 72px;
+  place-items: center;
+  border-radius: 20px;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 28px;
+  font-weight: 800;
+}
+
+.student-report-profile__heading span {
+  display: block;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.student-report-profile__heading h2 {
+  margin: 4px 0;
+  color: #172033;
+  font-size: 25px;
+}
+
+.student-report-profile__heading p {
+  margin: 0;
   color: #64748b;
+  font-size: 13px;
+}
+
+.student-report-profile__details {
+  display: grid;
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.student-report-profile__details > div {
+  display: grid;
+  grid-template-columns:
+    24px minmax(0, 1fr);
+  gap: 2px 8px;
+  padding: 11px;
+  border: 1px solid #e2e8f0;
+  border-radius: 11px;
+  background: #f8fafc;
+}
+
+.student-report-profile__details svg {
+  grid-row: span 2;
+  color: #2563eb;
+}
+
+.student-report-profile__details span,
+.student-report-profile__details strong {
+  display: block;
+}
+
+.student-report-profile__details span {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.student-report-profile__details strong {
+  overflow: hidden;
+  color: #172033;
+  font-size: 13px;
+  text-overflow: ellipsis;
 }
 
 .student-report-cards {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 18px;
+  grid-template-columns:
+    repeat(5, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 22px;
 }
 
 .student-report-card {
   display: grid;
-  gap: 8px;
-  padding: 20px;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
+  grid-template-columns:
+    45px minmax(0, 1fr);
+  align-items: center;
+  gap: 3px 12px;
+  min-height: 105px;
+  padding: 16px;
+  border: 1px solid #dbe3ef;
+  border-radius: 15px;
   background: #ffffff;
-  box-shadow: 0 8px 24px rgb(15 23 42 / 5%);
+  box-shadow:
+    0 8px 24px
+    rgb(15 23 42 / 5%);
 }
 
 .student-report-card__icon {
   display: grid;
-  width: 44px;
-  height: 44px;
-  margin-bottom: 5px;
+  width: 43px;
+  height: 43px;
+  grid-row: span 2;
   place-items: center;
   border-radius: 12px;
   background: #eff6ff;
   color: #2563eb;
 }
 
-.student-report-card span {
+.student-report-card > span {
+  align-self: end;
   color: #64748b;
-  font-size: 14px;
+  font-size: 11px;
 }
 
-.student-report-card strong {
-  font-size: 30px;
+.student-report-card > strong {
+  align-self: start;
+  color: #172033;
+  font-size: 25px;
 }
 
-.student-report-history {
-  margin-top: 24px;
+.student-report-card--present
+  .student-report-card__icon {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.student-report-card--absent
+  .student-report-card__icon {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.student-report-card--justified
+  .student-report-card__icon {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.student-report-card--percentage
+  .student-report-card__icon {
+  background: #ede9fe;
+  color: #7c3aed;
+}
+
+.student-report-content {
+  display: grid;
+  gap: 22px;
+}
+
+.student-report-section > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.student-report-section h2 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0;
+}
+
+.student-report-section header p {
+  margin: 5px 0 0;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.student-summary-list {
+  display: grid;
+  gap: 11px;
+}
+
+.student-summary-entry {
+  display: grid;
+  grid-template-columns:
+    125px minmax(0, 1fr);
+  gap: 16px;
+  padding: 15px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.student-summary-entry__date {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: #2563eb;
+}
+
+.student-summary-entry__date strong {
+  color: #172033;
+  font-size: 13px;
+}
+
+.student-summary-entry__content > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.student-summary-entry__content strong {
+  color: #172033;
+}
+
+.student-summary-entry__content span {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.student-summary-entry__content p {
+  margin: 9px 0 0;
+  color: #334155;
+  line-height: 1.6;
+  white-space: pre-wrap;
 }
 
 .attendance-status {
   display: inline-flex;
-  padding: 6px 10px;
+  padding: 5px 9px;
   border-radius: 999px;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
 }
 
 .attendance-status--presente {
@@ -85,14 +293,185 @@
   color: #92400e;
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1200px) {
+  .student-report-filter {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+
+  .student-report-filter
+    .button {
+    width: 100%;
+  }
+
   .student-report-cards {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns:
+      repeat(3, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 850px) {
+  .student-report-profile {
+    grid-template-columns:
+      72px minmax(0, 1fr);
+  }
+
+  .student-report-profile__details {
+    grid-column: 1 / -1;
+  }
+
+  .student-report-cards {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+
+  .student-summary-entry {
+    grid-template-columns: 1fr;
+  }
+
+  .student-summary-entry__content
+    > div {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+}
+
+@media (max-width: 560px) {
+  .student-report-filter {
+    grid-template-columns: 1fr;
+  }
+
+  .student-report-profile {
+    grid-template-columns: 1fr;
+  }
+
+  .student-report-profile__details {
+    grid-column: auto;
+    grid-template-columns: 1fr;
+  }
+
   .student-report-cards {
     grid-template-columns: 1fr;
+  }
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 14mm;
+  }
+
+  body {
+    background: #ffffff !important;
+  }
+
+  .sidebar,
+  .mobile-menu-button,
+  .sidebar-overlay,
+  .page-header,
+  .no-print {
+    display: none !important;
+  }
+
+  .app-layout__content {
+    width: 100% !important;
+    margin: 0 !important;
+  }
+
+  .student-report-page {
+    width: 100% !important;
+    padding: 0 !important;
+  }
+
+  .student-report-print-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #172033;
+  }
+
+  .student-report-print-logo {
+    color: #172033;
+    font-size: 24px;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+  }
+
+  .student-report-print-header
+    > div:last-child {
+    text-align: right;
+  }
+
+  .student-report-print-header strong,
+  .student-report-print-header span {
+    display: block;
+  }
+
+  .student-report-print-header span {
+    margin-top: 4px;
+    color: #475569;
+    font-size: 11px;
+  }
+
+  .panel,
+  .student-report-card {
+    break-inside: avoid;
+    border-color: #cbd5e1 !important;
+    box-shadow: none !important;
+  }
+
+  .student-report-profile {
+    padding: 14px;
+  }
+
+  .student-report-cards {
+    grid-template-columns:
+      repeat(5, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .student-report-card {
+    min-height: 82px;
+    padding: 10px;
+  }
+
+  .student-report-card__icon {
+    width: 35px;
+    height: 35px;
+  }
+
+  .student-report-card > strong {
+    font-size: 19px;
+  }
+
+  .student-report-section {
+    margin-top: 14px;
+  }
+
+  .student-summary-entry {
+    break-inside: avoid;
+  }
+
+  .table-wrapper {
+    overflow: visible !important;
+  }
+
+  .data-table {
+    width: 100%;
+    min-width: 0 !important;
+    font-size: 9px;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 6px;
+  }
+
+  .attendance-status {
+    padding: 3px 5px;
+    font-size: 8px;
   }
 }
