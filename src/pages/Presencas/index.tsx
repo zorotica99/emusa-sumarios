@@ -1,7 +1,24 @@
-import { Pencil, Plus, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import {
+  Check,
+  CheckCheck,
+  ChevronLeft,
+  ChevronRight,
+  Clock3,
+  RefreshCw,
+  Save,
+  UserCheck,
+  UserRoundX,
+  UsersRound,
+} from "lucide-react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type FormEvent,
+} from "react";
 import PageHeader from "../../components/common/PageHeader";
 import SelectField from "../../components/forms/SelectField";
+import { useAuth } from "../../hooks/useAuth";
 import {
   listarAlunos,
   type Aluno,
@@ -15,10 +32,13 @@ import {
   type Horario,
 } from "../../services/horarios.service";
 import {
-  atualizarPresenca,
-  criarPresenca,
-  eliminarPresenca,
+  listarHorariosAlunos,
+  type HorarioAluno,
+} from "../../services/horariosAlunos.service";
+import {
+  guardarPresencasEmLote,
   listarPresencas,
+  listarPresencasDaAula,
   type EstadoPresenca,
   type Presenca,
 } from "../../services/presencas.service";
@@ -31,76 +51,192 @@ import {
   type Turma,
 } from "../../services/turmas.service";
 import { obterMensagemErro } from "../../utils/errors";
+import "./Presencas.css";
 
-interface PresencaFormData {
-  horarioId: string;
+interface PresencaAluno {
   alunoId: string;
-  data: string;
+  nome: string;
   estado: EstadoPresenca;
   observacoes: string;
+  jaGuardada: boolean;
 }
 
-const dadosIniciais: PresencaFormData = {
-  horarioId: "",
-  alunoId: "",
-  data: "",
-  estado: "Presente",
-  observacoes: "",
-};
-
 const opcoesEstado = [
-  { value: "Presente", label: "Presente" },
-  { value: "Falta", label: "Falta" },
+  {
+    value: "Presente",
+    label: "Presente",
+  },
+  {
+    value: "Falta",
+    label: "Falta",
+  },
   {
     value: "Falta justificada",
     label: "Falta justificada",
   },
 ];
 
+function obterDataLocalHoje(): string {
+  const data = new Date();
+
+  const ano = data.getFullYear();
+
+  const mes = String(
+    data.getMonth() + 1,
+  ).padStart(2, "0");
+
+  const dia = String(
+    data.getDate(),
+  ).padStart(2, "0");
+
+  return `${ano}-${mes}-${dia}`;
+}
+
+function adicionarDias(
+  dataIso: string,
+  quantidade: number,
+): string {
+  const [ano, mes, dia] =
+    dataIso.split("-").map(Number);
+
+  const data = new Date(
+    ano,
+    mes - 1,
+    dia,
+  );
+
+  data.setDate(
+    data.getDate() + quantidade,
+  );
+
+  const novoAno =
+    data.getFullYear();
+
+  const novoMes = String(
+    data.getMonth() + 1,
+  ).padStart(2, "0");
+
+  const novoDia = String(
+    data.getDate(),
+  ).padStart(2, "0");
+
+  return `${novoAno}-${novoMes}-${novoDia}`;
+}
+
+function formatarData(
+  dataIso: string,
+): string {
+  const [ano, mes, dia] =
+    dataIso.split("-");
+
+  if (!ano || !mes || !dia) {
+    return dataIso;
+  }
+
+  return `${dia}/${mes}/${ano}`;
+}
+
 function Presencas() {
-  const [presencas, setPresencas] = useState<Presenca[]>([]);
-  const [alunos, setAlunos] = useState<Aluno[]>([]);
-  const [horarios, setHorarios] = useState<Horario[]>([]);
-  const [professores, setProfessores] = useState<Professor[]>([]);
-  const [turmas, setTurmas] = useState<Turma[]>([]);
-  const [disciplinas, setDisciplinas] = useState<Disciplina[]>([]);
+  const {
+    perfil,
+    eAdministrador,
+  } = useAuth();
 
-  const [formulario, setFormulario] =
-    useState<PresencaFormData>(dadosIniciais);
+  const [alunos, setAlunos] =
+    useState<Aluno[]>([]);
 
-  const [presencaEmEdicao, setPresencaEmEdicao] =
-    useState<Presenca | null>(null);
+  const [horarios, setHorarios] =
+    useState<Horario[]>([]);
 
-  const [aCarregar, setACarregar] = useState(true);
-  const [aGuardar, setAGuardar] = useState(false);
-  const [erro, setErro] = useState("");
+  const [
+    horariosAlunos,
+    setHorariosAlunos,
+  ] = useState<HorarioAluno[]>([]);
 
-  async function carregarDados() {
+  const [
+    professores,
+    setProfessores,
+  ] = useState<Professor[]>([]);
+
+  const [turmas, setTurmas] =
+    useState<Turma[]>([]);
+
+  const [
+    disciplinas,
+    setDisciplinas,
+  ] = useState<Disciplina[]>([]);
+
+  const [
+    todasPresencas,
+    setTodasPresencas,
+  ] = useState<Presenca[]>([]);
+
+  const [
+    presencasAlunos,
+    setPresencasAlunos,
+  ] = useState<PresencaAluno[]>([]);
+
+  const [horarioId, setHorarioId] =
+    useState("");
+
+  const [dataAula, setDataAula] =
+    useState(obterDataLocalHoje());
+
+  const [aCarregar, setACarregar] =
+    useState(true);
+
+  const [
+    aCarregarAula,
+    setACarregarAula,
+  ] = useState(false);
+
+  const [aGuardar, setAGuardar] =
+    useState(false);
+
+  const [erro, setErro] =
+    useState("");
+
+  const [sucesso, setSucesso] =
+    useState("");
+
+  async function carregarDadosGerais() {
     try {
+      setACarregar(true);
       setErro("");
 
       const [
-        dadosPresencas,
         dadosAlunos,
         dadosHorarios,
+        dadosHorariosAlunos,
         dadosProfessores,
         dadosTurmas,
         dadosDisciplinas,
+        dadosPresencas,
       ] = await Promise.all([
-        listarPresencas(),
         listarAlunos(),
         listarHorarios(),
+        listarHorariosAlunos(),
         listarProfessores(),
         listarTurmas(),
         listarDisciplinas(),
+        listarPresencas(),
       ]);
 
-      setPresencas(dadosPresencas);
       setAlunos(dadosAlunos);
       setHorarios(dadosHorarios);
-      setProfessores(dadosProfessores);
+      setHorariosAlunos(
+        dadosHorariosAlunos,
+      );
+      setProfessores(
+        dadosProfessores,
+      );
       setTurmas(dadosTurmas);
-      setDisciplinas(dadosDisciplinas);
+      setDisciplinas(
+        dadosDisciplinas,
+      );
+      setTodasPresencas(
+        dadosPresencas,
+      );
     } catch (error) {
       setErro(
         obterMensagemErro(
@@ -114,55 +250,349 @@ function Presencas() {
   }
 
   useEffect(() => {
-    carregarDados();
+    carregarDadosGerais();
   }, []);
 
-  function alterarCampo(
-    campo: keyof PresencaFormData,
-    valor: string,
-  ) {
-    setFormulario((dadosAtuais) => ({
-      ...dadosAtuais,
-      [campo]: valor,
-    }));
+  const horariosPermitidos =
+    useMemo(() => {
+      const listaOrdenada = [
+        ...horarios,
+      ].sort((a, b) => {
+        const dia =
+          a.dia_semana.localeCompare(
+            b.dia_semana,
+          );
+
+        if (dia !== 0) {
+          return dia;
+        }
+
+        return a.hora_inicio.localeCompare(
+          b.hora_inicio,
+        );
+      });
+
+      if (eAdministrador) {
+        return listaOrdenada;
+      }
+
+      if (!perfil?.professor_id) {
+        return [];
+      }
+
+      return listaOrdenada.filter(
+        (horario) =>
+          horario.professor_id ===
+          perfil.professor_id,
+      );
+    }, [
+      horarios,
+      perfil,
+      eAdministrador,
+    ]);
+
+  function obterNomeProfessor(
+    id: string,
+  ): string {
+    return (
+      professores.find(
+        (professor) =>
+          professor.id === id,
+      )?.nome ?? "Professor"
+    );
   }
 
-  async function guardarPresenca(
-    event: React.FormEvent<HTMLFormElement>,
+  function obterNomeTurma(
+    id: string,
+  ): string {
+    return (
+      turmas.find(
+        (turma) => turma.id === id,
+      )?.nome ?? "Turma"
+    );
+  }
+
+  function obterNomeDisciplina(
+    id: string,
+  ): string {
+    return (
+      disciplinas.find(
+        (disciplina) =>
+          disciplina.id === id,
+      )?.nome ?? "Disciplina"
+    );
+  }
+
+  function obterNomeAluno(
+    id: string,
+  ): string {
+    return (
+      alunos.find(
+        (aluno) => aluno.id === id,
+      )?.nome ?? "Aluno"
+    );
+  }
+
+  function obterDescricaoHorario(
+    horario: Horario,
+  ): string {
+    const professor =
+      obterNomeProfessor(
+        horario.professor_id,
+      );
+
+    const turma =
+      obterNomeTurma(
+        horario.turma_id,
+      );
+
+    const disciplina =
+      obterNomeDisciplina(
+        horario.disciplina_id,
+      );
+
+    const horaInicio =
+      horario.hora_inicio.slice(0, 5);
+
+    const horaFim =
+      horario.hora_fim.slice(0, 5);
+
+    return `${disciplina} — ${turma} — ${professor} — ${horario.dia_semana}, ${horaInicio}–${horaFim}`;
+  }
+
+  const horarioSelecionado =
+    useMemo(
+      () =>
+        horariosPermitidos.find(
+          (horario) =>
+            horario.id === horarioId,
+        ) ?? null,
+      [
+        horariosPermitidos,
+        horarioId,
+      ],
+    );
+
+  async function carregarPresencasDaAula() {
+    if (!horarioId || !dataAula) {
+      setPresencasAlunos([]);
+      return;
+    }
+
+    try {
+      setACarregarAula(true);
+      setErro("");
+      setSucesso("");
+
+      const presencasExistentes =
+        await listarPresencasDaAula(
+          horarioId,
+          dataAula,
+        );
+
+      const alunoIdsDoHorario =
+        horariosAlunos
+          .filter(
+            (registo) =>
+              registo.horario_id ===
+              horarioId,
+          )
+          .map(
+            (registo) =>
+              registo.aluno_id,
+          );
+
+      const alunosDaAula =
+        alunoIdsDoHorario
+          .map((alunoId) =>
+            alunos.find(
+              (aluno) =>
+                aluno.id === alunoId,
+            ),
+          )
+          .filter(
+            (
+              aluno,
+            ): aluno is Aluno =>
+              Boolean(aluno),
+          )
+          .sort((a, b) =>
+            a.nome.localeCompare(
+              b.nome,
+            ),
+          );
+
+      const novaLista =
+        alunosDaAula.map((aluno) => {
+          const presenca =
+            presencasExistentes.find(
+              (registo) =>
+                registo.aluno_id ===
+                aluno.id,
+            );
+
+          return {
+            alunoId: aluno.id,
+            nome: aluno.nome,
+            estado:
+              presenca?.estado ??
+              "Presente",
+            observacoes:
+              presenca?.observacoes ??
+              "",
+            jaGuardada:
+              Boolean(presenca),
+          } satisfies PresencaAluno;
+        });
+
+      setPresencasAlunos(
+        novaLista,
+      );
+    } catch (error) {
+      setErro(
+        obterMensagemErro(
+          error,
+          "Não foi possível carregar os alunos desta aula.",
+        ),
+      );
+
+      setPresencasAlunos([]);
+    } finally {
+      setACarregarAula(false);
+    }
+  }
+
+  useEffect(() => {
+    carregarPresencasDaAula();
+  }, [
+    horarioId,
+    dataAula,
+    horariosAlunos,
+    alunos,
+  ]);
+
+  function alterarEstado(
+    alunoId: string,
+    estado: EstadoPresenca,
+  ) {
+    setPresencasAlunos(
+      (listaAtual) =>
+        listaAtual.map((item) =>
+          item.alunoId === alunoId
+            ? {
+                ...item,
+                estado,
+              }
+            : item,
+        ),
+    );
+
+    setErro("");
+    setSucesso("");
+  }
+
+  function alterarObservacoes(
+    alunoId: string,
+    observacoes: string,
+  ) {
+    setPresencasAlunos(
+      (listaAtual) =>
+        listaAtual.map((item) =>
+          item.alunoId === alunoId
+            ? {
+                ...item,
+                observacoes,
+              }
+            : item,
+        ),
+    );
+
+    setErro("");
+    setSucesso("");
+  }
+
+  function marcarTodos(
+    estado: EstadoPresenca,
+  ) {
+    setPresencasAlunos(
+      (listaAtual) =>
+        listaAtual.map((item) => ({
+          ...item,
+          estado,
+        })),
+    );
+
+    setErro("");
+    setSucesso("");
+  }
+
+  async function guardar(
+    event: FormEvent<HTMLFormElement>,
   ) {
     event.preventDefault();
 
+    if (!horarioId) {
+      setErro(
+        "Selecione uma aula.",
+      );
+      return;
+    }
+
+    if (!dataAula) {
+      setErro(
+        "Selecione a data da aula.",
+      );
+      return;
+    }
+
     if (
-      !formulario.horarioId ||
-      !formulario.alunoId ||
-      !formulario.data
+      presencasAlunos.length === 0
     ) {
-      setErro("Preencha o horário, o aluno e a data.");
+      setErro(
+        "Esta aula não tem alunos associados.",
+      );
       return;
     }
 
     try {
       setAGuardar(true);
       setErro("");
+      setSucesso("");
 
-      if (presencaEmEdicao) {
-        await atualizarPresenca(
-          presencaEmEdicao.id,
-          formulario,
-        );
-      } else {
-        await criarPresenca(formulario);
-      }
+      await guardarPresencasEmLote(
+        horarioId,
+        dataAula,
+        presencasAlunos.map(
+          (item) => ({
+            alunoId: item.alunoId,
+            estado: item.estado,
+            observacoes:
+              item.observacoes,
+          }),
+        ),
+      );
 
-      setFormulario(dadosIniciais);
-      setPresencaEmEdicao(null);
+      await Promise.all([
+        carregarPresencasDaAula(),
+        carregarDadosGerais(),
+      ]);
 
-      await carregarDados();
+      setSucesso(
+        `${presencasAlunos.length} presença${
+          presencasAlunos.length === 1
+            ? ""
+            : "s"
+        } guardada${
+          presencasAlunos.length === 1
+            ? ""
+            : "s"
+        } com sucesso.`,
+      );
     } catch (error) {
       setErro(
         obterMensagemErro(
           error,
-          "Não foi possível guardar a presença.",
+          "Não foi possível guardar as presenças.",
         ),
       );
     } finally {
@@ -170,262 +600,508 @@ function Presencas() {
     }
   }
 
-  function editarPresenca(presenca: Presenca) {
-    setPresencaEmEdicao(presenca);
+  const resumo = useMemo(
+    () => ({
+      total: presencasAlunos.length,
 
-    setFormulario({
-      horarioId: presenca.horario_id,
-      alunoId: presenca.aluno_id,
-      data: presenca.data,
-      estado: presenca.estado,
-      observacoes: presenca.observacoes ?? "",
-    });
+      presentes:
+        presencasAlunos.filter(
+          (item) =>
+            item.estado ===
+            "Presente",
+        ).length,
 
-    setErro("");
-  }
+      faltas:
+        presencasAlunos.filter(
+          (item) =>
+            item.estado ===
+            "Falta",
+        ).length,
 
-  function cancelarEdicao() {
-    setPresencaEmEdicao(null);
-    setFormulario(dadosIniciais);
-    setErro("");
-  }
+      justificadas:
+        presencasAlunos.filter(
+          (item) =>
+            item.estado ===
+            "Falta justificada",
+        ).length,
+    }),
+    [presencasAlunos],
+  );
 
-  async function removerPresenca(presenca: Presenca) {
-    const confirmado = window.confirm(
-      "Tem a certeza de que pretende eliminar esta presença?",
+  const historicoVisivel =
+    useMemo(() => {
+      return todasPresencas
+        .filter((presenca) => {
+          if (
+            horarioId &&
+            presenca.horario_id !==
+              horarioId
+          ) {
+            return false;
+          }
+
+          return horariosPermitidos.some(
+            (horario) =>
+              horario.id ===
+              presenca.horario_id,
+          );
+        })
+        .slice(0, 100);
+    }, [
+      todasPresencas,
+      horarioId,
+      horariosPermitidos,
+    ]);
+
+  const opcoesHorarios =
+    horariosPermitidos.map(
+      (horario) => ({
+        value: horario.id,
+        label:
+          obterDescricaoHorario(
+            horario,
+          ),
+      }),
     );
-
-    if (!confirmado) {
-      return;
-    }
-
-    try {
-      setErro("");
-      await eliminarPresenca(presenca.id);
-      await carregarDados();
-    } catch (error) {
-      setErro(
-        obterMensagemErro(
-          error,
-          "Não foi possível eliminar a presença.",
-        ),
-      );
-    }
-  }
-
-  function obterNomeAluno(id: string) {
-    return alunos.find((aluno) => aluno.id === id)?.nome ?? "—";
-  }
-
-  function obterDescricaoHorario(horario: Horario) {
-    const professor =
-      professores.find(
-        (item) => item.id === horario.professor_id,
-      )?.nome ?? "Professor";
-
-    const turma =
-      turmas.find((item) => item.id === horario.turma_id)
-        ?.nome ?? "Turma";
-
-    const disciplina =
-      disciplinas.find(
-        (item) => item.id === horario.disciplina_id,
-      )?.nome ?? "Disciplina";
-
-    return `${professor} — ${turma} — ${disciplina} — ${horario.dia_semana} ${horario.hora_inicio.slice(0, 5)}`;
-  }
-
-  function obterHorario(id: string) {
-    const horario = horarios.find((item) => item.id === id);
-
-    return horario ? obterDescricaoHorario(horario) : "—";
-  }
-
-  const opcoesAlunos = alunos.map((aluno) => ({
-    value: aluno.id,
-    label: aluno.nome,
-  }));
-
-  const opcoesHorarios = horarios.map((horario) => ({
-    value: horario.id,
-    label: obterDescricaoHorario(horario),
-  }));
 
   return (
     <main className="page">
       <PageHeader
         title="Presenças"
-        description="Registar a presença dos alunos nas aulas."
+        description="Marcar rapidamente a presença de todos os alunos da aula."
       />
 
-      {erro && <div className="alert alert--error">{erro}</div>}
+      {erro && (
+        <div className="alert alert--error">
+          {erro}
+        </div>
+      )}
 
-      <section className="crud-grid">
-        <div className="panel">
+      {sucesso && (
+        <div className="alert alert--success">
+          {sucesso}
+        </div>
+      )}
+
+      <section className="attendance-toolbar panel">
+        <div className="form-field">
+          <label htmlFor="presenca-data">
+            Data da aula
+          </label>
+
+          <div className="attendance-date-control">
+            <button
+              className="icon-button"
+              type="button"
+              title="Dia anterior"
+              onClick={() =>
+                setDataAula(
+                  adicionarDias(
+                    dataAula,
+                    -1,
+                  ),
+                )
+              }
+            >
+              <ChevronLeft size={18} />
+            </button>
+
+            <input
+              id="presenca-data"
+              type="date"
+              value={dataAula}
+              onChange={(event) => {
+                setDataAula(
+                  event.target.value,
+                );
+
+                setErro("");
+                setSucesso("");
+              }}
+            />
+
+            <button
+              className="icon-button"
+              type="button"
+              title="Dia seguinte"
+              onClick={() =>
+                setDataAula(
+                  adicionarDias(
+                    dataAula,
+                    1,
+                  ),
+                )
+              }
+            >
+              <ChevronRight size={18} />
+            </button>
+          </div>
+        </div>
+
+        <SelectField
+          id="presenca-horario"
+          label="Aula"
+          value={horarioId}
+          options={opcoesHorarios}
+          placeholder={
+            aCarregar
+              ? "A carregar aulas..."
+              : "Selecione uma aula"
+          }
+          onChange={(valor) => {
+            setHorarioId(valor);
+            setErro("");
+            setSucesso("");
+          }}
+        />
+
+        <button
+          className="button button--secondary"
+          type="button"
+          disabled={
+            aCarregarAula ||
+            !horarioId
+          }
+          onClick={
+            carregarPresencasDaAula
+          }
+        >
+          <RefreshCw size={18} />
+
+          Atualizar
+        </button>
+      </section>
+
+      {horarioSelecionado && (
+        <section className="attendance-lesson-header panel">
+          <div className="attendance-lesson-header__icon">
+            <Clock3 size={24} />
+          </div>
+
+          <div>
+            <span>
+              {formatarData(dataAula)}
+            </span>
+
+            <h2>
+              {obterNomeDisciplina(
+                horarioSelecionado.disciplina_id,
+              )}
+            </h2>
+
+            <p>
+              {obterNomeTurma(
+                horarioSelecionado.turma_id,
+              )}
+              {" · "}
+              {obterNomeProfessor(
+                horarioSelecionado.professor_id,
+              )}
+              {" · "}
+              {horarioSelecionado.hora_inicio.slice(
+                0,
+                5,
+              )}
+              {"–"}
+              {horarioSelecionado.hora_fim.slice(
+                0,
+                5,
+              )}
+            </p>
+          </div>
+        </section>
+      )}
+
+      {horarioSelecionado && (
+        <section className="attendance-summary-grid">
+          <article>
+            <UsersRound size={22} />
+
+            <div>
+              <span>Alunos</span>
+              <strong>
+                {resumo.total}
+              </strong>
+            </div>
+          </article>
+
+          <article className="attendance-summary-card--present">
+            <UserCheck size={22} />
+
+            <div>
+              <span>Presentes</span>
+              <strong>
+                {resumo.presentes}
+              </strong>
+            </div>
+          </article>
+
+          <article className="attendance-summary-card--absent">
+            <UserRoundX size={22} />
+
+            <div>
+              <span>Faltas</span>
+              <strong>
+                {resumo.faltas}
+              </strong>
+            </div>
+          </article>
+
+          <article className="attendance-summary-card--justified">
+            <CheckCheck size={22} />
+
+            <div>
+              <span>Justificadas</span>
+              <strong>
+                {resumo.justificadas}
+              </strong>
+            </div>
+          </article>
+        </section>
+      )}
+
+      <section className="attendance-layout">
+        <article className="panel">
+          <header className="attendance-list-header">
+            <div>
+              <h2>
+                Registo da aula
+              </h2>
+
+              <p>
+                Todos começam como presentes.
+                Altera apenas os casos necessários.
+              </p>
+            </div>
+
+            {presencasAlunos.length >
+              0 && (
+              <div className="attendance-quick-actions">
+                <button
+                  type="button"
+                  onClick={() =>
+                    marcarTodos(
+                      "Presente",
+                    )
+                  }
+                >
+                  <Check size={17} />
+                  Todos presentes
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    marcarTodos(
+                      "Falta",
+                    )
+                  }
+                >
+                  <UserRoundX
+                    size={17}
+                  />
+                  Todos em falta
+                </button>
+              </div>
+            )}
+          </header>
+
+          {aCarregarAula ? (
+            <p className="muted-text">
+              A carregar alunos...
+            </p>
+          ) : !horarioId ? (
+            <div className="attendance-empty">
+              <UsersRound size={38} />
+
+              <strong>
+                Selecione uma aula
+              </strong>
+
+              <p>
+                Os alunos associados ao horário
+                aparecerão aqui.
+              </p>
+            </div>
+          ) : presencasAlunos.length ===
+            0 ? (
+            <div className="attendance-empty">
+              <UsersRound size={38} />
+
+              <strong>
+                Aula sem alunos
+              </strong>
+
+              <p>
+                Associe alunos a este horário
+                antes de marcar presenças.
+              </p>
+            </div>
+          ) : (
+            <form onSubmit={guardar}>
+              <div className="attendance-students-list">
+                {presencasAlunos.map(
+                  (item) => (
+                    <div
+                      className={`attendance-student attendance-student--${item.estado
+                        .toLowerCase()
+                        .replaceAll(
+                          " ",
+                          "-",
+                        )}`}
+                      key={item.alunoId}
+                    >
+                      <div className="attendance-student__identity">
+                        <div className="attendance-student__avatar">
+                          {item.nome
+                            .trim()
+                            .charAt(0)
+                            .toUpperCase()}
+                        </div>
+
+                        <div>
+                          <strong>
+                            {item.nome}
+                          </strong>
+
+                          <span>
+                            {item.jaGuardada
+                              ? "Registo existente"
+                              : "Novo registo"}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="attendance-state-buttons">
+                        {opcoesEstado.map(
+                          (opcao) => (
+                            <button
+                              type="button"
+                              key={opcao.value}
+                              className={
+                                item.estado ===
+                                opcao.value
+                                  ? "attendance-state-button attendance-state-button--active"
+                                  : "attendance-state-button"
+                              }
+                              onClick={() =>
+                                alterarEstado(
+                                  item.alunoId,
+                                  opcao.value as EstadoPresenca,
+                                )
+                              }
+                            >
+                              {opcao.label}
+                            </button>
+                          ),
+                        )}
+                      </div>
+
+                      <input
+                        className="attendance-observation"
+                        type="text"
+                        value={
+                          item.observacoes
+                        }
+                        placeholder="Observação opcional..."
+                        onChange={(event) =>
+                          alterarObservacoes(
+                            item.alunoId,
+                            event.target.value,
+                          )
+                        }
+                      />
+                    </div>
+                  ),
+                )}
+              </div>
+
+              <div className="attendance-save-bar">
+                <div>
+                  <strong>
+                    {resumo.total} aluno
+                    {resumo.total === 1
+                      ? ""
+                      : "s"}
+                  </strong>
+
+                  <span>
+                    {resumo.presentes} presente
+                    {resumo.presentes === 1
+                      ? ""
+                      : "s"}
+                    {" · "}
+                    {resumo.faltas} falta
+                    {resumo.faltas === 1
+                      ? ""
+                      : "s"}
+                  </span>
+                </div>
+
+                <button
+                  className="button button--primary"
+                  type="submit"
+                  disabled={aGuardar}
+                >
+                  <Save size={18} />
+
+                  {aGuardar
+                    ? "A guardar..."
+                    : "Guardar presenças"}
+                </button>
+              </div>
+            </form>
+          )}
+        </article>
+
+        <article className="panel attendance-history">
           <h2>
-            {presencaEmEdicao
-              ? "Editar presença"
-              : "Nova presença"}
+            Registos recentes
           </h2>
 
-          <form className="form" onSubmit={guardarPresenca}>
-            <SelectField
-              id="presenca-horario"
-              label="Horário"
-              value={formulario.horarioId}
-              options={opcoesHorarios}
-              placeholder="Selecione um horário"
-              onChange={(valor) =>
-                alterarCampo("horarioId", valor)
-              }
-            />
-
-            <SelectField
-              id="presenca-aluno"
-              label="Aluno"
-              value={formulario.alunoId}
-              options={opcoesAlunos}
-              placeholder="Selecione um aluno"
-              onChange={(valor) =>
-                alterarCampo("alunoId", valor)
-              }
-            />
-
-            <div className="form-field">
-              <label htmlFor="presenca-data">Data</label>
-
-              <input
-                id="presenca-data"
-                type="date"
-                value={formulario.data}
-                onChange={(event) =>
-                  alterarCampo("data", event.target.value)
-                }
-              />
-            </div>
-
-            <SelectField
-              id="presenca-estado"
-              label="Estado"
-              value={formulario.estado}
-              options={opcoesEstado}
-              placeholder="Selecione o estado"
-              onChange={(valor) =>
-                alterarCampo("estado", valor)
-              }
-            />
-
-            <div className="form-field">
-              <label htmlFor="presenca-observacoes">
-                Observações
-              </label>
-
-              <textarea
-                id="presenca-observacoes"
-                rows={4}
-                value={formulario.observacoes}
-                onChange={(event) =>
-                  alterarCampo(
-                    "observacoes",
-                    event.target.value,
-                  )
-                }
-                placeholder="Observações opcionais..."
-              />
-            </div>
-
-            <div className="form-actions">
-              <button
-                className="button button--primary"
-                type="submit"
-                disabled={aGuardar}
-              >
-                <Plus size={18} />
-
-                {aGuardar
-                  ? "A guardar..."
-                  : presencaEmEdicao
-                    ? "Guardar alterações"
-                    : "Adicionar presença"}
-              </button>
-
-              {presencaEmEdicao && (
-                <button
-                  className="button button--secondary"
-                  type="button"
-                  onClick={cancelarEdicao}
-                >
-                  Cancelar
-                </button>
-              )}
-            </div>
-          </form>
-        </div>
-
-        <div className="panel">
-          <h2>Lista de presenças</h2>
-
-          {aCarregar ? (
-            <p className="muted-text">A carregar...</p>
-          ) : presencas.length === 0 ? (
+          {historicoVisivel.length ===
+          0 ? (
             <p className="muted-text">
-              Ainda não existem presenças.
+              Ainda não existem registos.
             </p>
           ) : (
-            <div className="table-wrapper">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Data</th>
-                    <th>Aluno</th>
-                    <th>Horário</th>
-                    <th>Estado</th>
-                    <th>Observações</th>
-                    <th className="data-table__actions">
-                      Ações
-                    </th>
-                  </tr>
-                </thead>
+            <div className="attendance-history-list">
+              {historicoVisivel.map(
+                (presenca) => (
+                  <div
+                    className="attendance-history-row"
+                    key={presenca.id}
+                  >
+                    <div>
+                      <strong>
+                        {obterNomeAluno(
+                          presenca.aluno_id,
+                        )}
+                      </strong>
 
-                <tbody>
-                  {presencas.map((presenca) => (
-                    <tr key={presenca.id}>
-                      <td>{presenca.data}</td>
-                      <td>{obterNomeAluno(presenca.aluno_id)}</td>
-                      <td>{obterHorario(presenca.horario_id)}</td>
-                      <td>{presenca.estado}</td>
-                      <td>{presenca.observacoes || "—"}</td>
+                      <span>
+                        {formatarData(
+                          presenca.data,
+                        )}
+                      </span>
+                    </div>
 
-                      <td className="data-table__actions">
-                        <button
-                          className="icon-button"
-                          type="button"
-                          title="Editar"
-                          onClick={() =>
-                            editarPresenca(presenca)
-                          }
-                        >
-                          <Pencil size={18} />
-                        </button>
-
-                        <button
-                          className="icon-button icon-button--danger"
-                          type="button"
-                          title="Eliminar"
-                          onClick={() =>
-                            removerPresenca(presenca)
-                          }
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                    <span
+                      className={`attendance-history-state attendance-history-state--${presenca.estado
+                        .toLowerCase()
+                        .replaceAll(
+                          " ",
+                          "-",
+                        )}`}
+                    >
+                      {presenca.estado}
+                    </span>
+                  </div>
+                ),
+              )}
             </div>
           )}
-        </div>
+        </article>
       </section>
     </main>
   );

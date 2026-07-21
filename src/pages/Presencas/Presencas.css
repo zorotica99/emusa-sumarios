@@ -1,0 +1,473 @@
+.attendance-toolbar {
+  display: grid;
+  grid-template-columns:
+    minmax(220px, 280px)
+    minmax(320px, 1fr)
+    auto;
+  align-items: end;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+.attendance-date-control {
+  display: grid;
+  grid-template-columns:
+    auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+}
+
+.attendance-date-control input {
+  width: 100%;
+}
+
+.attendance-lesson-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.attendance-lesson-header__icon {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 15px;
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.attendance-lesson-header span {
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.attendance-lesson-header h2 {
+  margin: 3px 0;
+  color: #172033;
+}
+
+.attendance-lesson-header p {
+  margin: 0;
+  color: #64748b;
+}
+
+.attendance-summary-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(4, minmax(0, 1fr));
+  gap: 15px;
+  margin-bottom: 22px;
+}
+
+.attendance-summary-grid article {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  min-height: 100px;
+  padding: 18px;
+  border: 1px solid #dbe3ef;
+  border-radius: 15px;
+  background: #ffffff;
+  color: #2563eb;
+  box-shadow:
+    0 8px 24px
+    rgb(15 23 42 / 5%);
+}
+
+.attendance-summary-grid span,
+.attendance-summary-grid strong {
+  display: block;
+}
+
+.attendance-summary-grid span {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.attendance-summary-grid strong {
+  margin-top: 4px;
+  color: #172033;
+  font-size: 27px;
+}
+
+.attendance-summary-card--present {
+  color: #16a34a !important;
+}
+
+.attendance-summary-card--absent {
+  color: #dc2626 !important;
+}
+
+.attendance-summary-card--justified {
+  color: #d97706 !important;
+}
+
+.attendance-layout {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 2fr)
+    minmax(280px, 0.75fr);
+  align-items: start;
+  gap: 22px;
+}
+
+.attendance-list-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+.attendance-list-header h2 {
+  margin-bottom: 0;
+}
+
+.attendance-list-header p {
+  margin: 5px 0 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.attendance-quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.attendance-quick-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 7px 11px;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #475569;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.attendance-quick-actions button:hover {
+  border-color: #93c5fd;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.attendance-empty {
+  display: grid;
+  min-height: 270px;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  color: #94a3b8;
+  text-align: center;
+}
+
+.attendance-empty strong {
+  color: #172033;
+  font-size: 18px;
+}
+
+.attendance-empty p {
+  max-width: 360px;
+  margin: 0;
+}
+
+.attendance-students-list {
+  display: grid;
+  gap: 10px;
+}
+
+.attendance-student {
+  display: grid;
+  grid-template-columns:
+    minmax(170px, 1fr)
+    minmax(300px, auto)
+    minmax(180px, 0.75fr);
+  align-items: center;
+  gap: 14px;
+  padding: 13px;
+  border: 1px solid #dbe3ef;
+  border-radius: 13px;
+  background: #ffffff;
+}
+
+.attendance-student--presente {
+  border-left:
+    4px solid #22c55e;
+}
+
+.attendance-student--falta {
+  border-left:
+    4px solid #ef4444;
+  background: #fffafa;
+}
+
+.attendance-student--falta-justificada {
+  border-left:
+    4px solid #f59e0b;
+  background: #fffdf5;
+}
+
+.attendance-student__identity {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.attendance-student__avatar {
+  display: grid;
+  width: 39px;
+  height: 39px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  background: #eff6ff;
+  color: #2563eb;
+  font-weight: 800;
+}
+
+.attendance-student__identity strong,
+.attendance-student__identity span {
+  display: block;
+}
+
+.attendance-student__identity strong {
+  color: #172033;
+}
+
+.attendance-student__identity span {
+  margin-top: 3px;
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.attendance-state-buttons {
+  display: grid;
+  grid-template-columns:
+    repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.attendance-state-button {
+  min-height: 38px;
+  padding: 6px 9px;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.attendance-state-button:hover {
+  background: #f8fafc;
+}
+
+.attendance-state-button--active {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.attendance-observation {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+}
+
+.attendance-save-bar {
+  position: sticky;
+  bottom: 12px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 18px;
+  padding: 14px 16px;
+  border: 1px solid #bfdbfe;
+  border-radius: 13px;
+  background:
+    rgb(255 255 255 / 96%);
+  box-shadow:
+    0 14px 35px
+    rgb(15 23 42 / 14%);
+  backdrop-filter: blur(10px);
+}
+
+.attendance-save-bar strong,
+.attendance-save-bar span {
+  display: block;
+}
+
+.attendance-save-bar strong {
+  color: #172033;
+}
+
+.attendance-save-bar span {
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.attendance-history-list {
+  display: grid;
+  gap: 8px;
+  max-height: 670px;
+  overflow-y: auto;
+}
+
+.attendance-history-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.attendance-history-row strong,
+.attendance-history-row span {
+  display: block;
+}
+
+.attendance-history-row strong {
+  color: #172033;
+  font-size: 13px;
+}
+
+.attendance-history-row div > span {
+  margin-top: 3px;
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.attendance-history-state {
+  padding: 5px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.attendance-history-state--presente {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.attendance-history-state--falta {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.attendance-history-state--falta-justificada {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+@media (max-width: 1200px) {
+  .attendance-toolbar {
+    grid-template-columns:
+      minmax(210px, 270px)
+      minmax(0, 1fr);
+  }
+
+  .attendance-toolbar
+    > .button {
+    grid-column: 1 / -1;
+  }
+
+  .attendance-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .attendance-student {
+    grid-template-columns:
+      minmax(160px, 1fr)
+      minmax(280px, 1fr);
+  }
+
+  .attendance-observation {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 800px) {
+  .attendance-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .attendance-toolbar
+    > .button {
+    grid-column: auto;
+    width: 100%;
+  }
+
+  .attendance-summary-grid {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+
+  .attendance-list-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .attendance-student {
+    grid-template-columns: 1fr;
+  }
+
+  .attendance-observation {
+    grid-column: auto;
+  }
+
+  .attendance-save-bar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .attendance-save-bar
+    .button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 520px) {
+  .attendance-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .attendance-lesson-header {
+    align-items: flex-start;
+  }
+
+  .attendance-state-buttons {
+    grid-template-columns: 1fr;
+  }
+
+  .attendance-state-button {
+    min-height: 44px;
+    font-size: 13px;
+  }
+
+  .attendance-quick-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .attendance-quick-actions
+    button {
+    justify-content: center;
+  }
+}

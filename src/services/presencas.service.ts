@@ -28,27 +28,64 @@ export interface PresencaEmLote {
   observacoes?: string;
 }
 
-function validarPresenca(dados: GuardarPresencaData) {
-  if (!dados.horarioId.trim()) {
-    throw new Error("Selecione um horário.");
-  }
+const camposPresenca = `
+  id,
+  horario_id,
+  aluno_id,
+  data,
+  estado,
+  observacoes
+`;
 
-  if (!dados.alunoId.trim()) {
-    throw new Error("Selecione um aluno.");
-  }
+function validarEstado(
+  estado: EstadoPresenca,
+): void {
+  const estadosValidos: EstadoPresenca[] = [
+    "Presente",
+    "Falta",
+    "Falta justificada",
+  ];
 
-  if (!dados.data.trim()) {
-    throw new Error("Selecione uma data.");
+  if (!estadosValidos.includes(estado)) {
+    throw new Error(
+      "Estado de presença inválido.",
+    );
   }
 }
 
-export async function listarPresencas(): Promise<Presenca[]> {
+function validarPresenca(
+  dados: GuardarPresencaData,
+): void {
+  if (!dados.horarioId.trim()) {
+    throw new Error(
+      "Selecione um horário.",
+    );
+  }
+
+  if (!dados.alunoId.trim()) {
+    throw new Error(
+      "Selecione um aluno.",
+    );
+  }
+
+  if (!dados.data.trim()) {
+    throw new Error(
+      "Selecione uma data.",
+    );
+  }
+
+  validarEstado(dados.estado);
+}
+
+export async function listarPresencas(): Promise<
+  Presenca[]
+> {
   const { data, error } = await supabase
     .from("presencas")
-    .select(
-      "id, horario_id, aluno_id, data, estado, observacoes",
-    )
-    .order("data", { ascending: false });
+    .select(camposPresenca)
+    .order("data", {
+      ascending: false,
+    });
 
   if (error) {
     throw new Error(error.message);
@@ -61,17 +98,21 @@ export async function listarPresencasDaAula(
   horarioId: string,
   dataAula: string,
 ): Promise<Presenca[]> {
-  if (!horarioId || !dataAula) {
+  if (
+    !horarioId.trim() ||
+    !dataAula.trim()
+  ) {
     return [];
   }
 
   const { data, error } = await supabase
     .from("presencas")
-    .select(
-      "id, horario_id, aluno_id, data, estado, observacoes",
-    )
+    .select(camposPresenca)
     .eq("horario_id", horarioId)
-    .eq("data", dataAula);
+    .eq("data", dataAula)
+    .order("aluno_id", {
+      ascending: true,
+    });
 
   if (error) {
     throw new Error(error.message);
@@ -86,29 +127,65 @@ export async function guardarPresencasEmLote(
   presencas: PresencaEmLote[],
 ): Promise<void> {
   if (!horarioId.trim()) {
-    throw new Error("Horário inválido.");
+    throw new Error(
+      "Selecione um horário.",
+    );
   }
 
   if (!dataAula.trim()) {
-    throw new Error("Data inválida.");
+    throw new Error(
+      "Selecione uma data.",
+    );
   }
 
   if (presencas.length === 0) {
-    return;
+    throw new Error(
+      "Esta aula não tem alunos associados.",
+    );
   }
 
-  const registos = presencas.map((presenca) => ({
-    horario_id: horarioId,
-    aluno_id: presenca.alunoId,
-    data: dataAula,
-    estado: presenca.estado,
-    observacoes: presenca.observacoes?.trim() || null,
-  }));
+  const alunosUnicos = new Set(
+    presencas.map(
+      (presenca) => presenca.alunoId,
+    ),
+  );
+
+  if (
+    alunosUnicos.size !==
+    presencas.length
+  ) {
+    throw new Error(
+      "Existem alunos repetidos na lista de presenças.",
+    );
+  }
+
+  const registos = presencas.map(
+    (presenca) => {
+      if (!presenca.alunoId.trim()) {
+        throw new Error(
+          "Foi encontrado um aluno inválido.",
+        );
+      }
+
+      validarEstado(presenca.estado);
+
+      return {
+        horario_id: horarioId,
+        aluno_id: presenca.alunoId,
+        data: dataAula,
+        estado: presenca.estado,
+        observacoes:
+          presenca.observacoes?.trim() ||
+          null,
+      };
+    },
+  );
 
   const { error } = await supabase
     .from("presencas")
     .upsert(registos, {
-      onConflict: "horario_id,aluno_id,data",
+      onConflict:
+        "horario_id,data,aluno_id",
     });
 
   if (error) {
@@ -128,11 +205,11 @@ export async function criarPresenca(
       aluno_id: dados.alunoId,
       data: dados.data,
       estado: dados.estado,
-      observacoes: dados.observacoes.trim() || null,
+      observacoes:
+        dados.observacoes.trim() ||
+        null,
     })
-    .select(
-      "id, horario_id, aluno_id, data, estado, observacoes",
-    )
+    .select(camposPresenca)
     .single();
 
   if (error) {
@@ -153,7 +230,9 @@ export async function atualizarPresenca(
   dados: GuardarPresencaData,
 ): Promise<Presenca> {
   if (!id.trim()) {
-    throw new Error("Presença inválida.");
+    throw new Error(
+      "Presença inválida.",
+    );
   }
 
   validarPresenca(dados);
@@ -165,12 +244,12 @@ export async function atualizarPresenca(
       aluno_id: dados.alunoId,
       data: dados.data,
       estado: dados.estado,
-      observacoes: dados.observacoes.trim() || null,
+      observacoes:
+        dados.observacoes.trim() ||
+        null,
     })
     .eq("id", id)
-    .select(
-      "id, horario_id, aluno_id, data, estado, observacoes",
-    )
+    .select(camposPresenca)
     .single();
 
   if (error) {
@@ -180,9 +259,13 @@ export async function atualizarPresenca(
   return data as Presenca;
 }
 
-export async function eliminarPresenca(id: string): Promise<void> {
+export async function eliminarPresenca(
+  id: string,
+): Promise<void> {
   if (!id.trim()) {
-    throw new Error("Presença inválida.");
+    throw new Error(
+      "Presença inválida.",
+    );
   }
 
   const { error } = await supabase
