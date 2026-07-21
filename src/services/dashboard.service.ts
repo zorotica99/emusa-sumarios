@@ -1,4 +1,10 @@
 import {
+  listarAlunos,
+} from "./alunos.service";
+import {
+  obterAnoLetivoAtual,
+} from "./anoLetivo.service";
+import {
   encontrarFeriadoPortugal,
 } from "./feriadosPortugal.service";
 import {
@@ -14,8 +20,12 @@ import {
   listarInterrupcoesLetivas,
 } from "./interrupcoesLetivas.service";
 import {
-  obterAnoLetivoAtual,
-} from "./anoLetivo.service";
+  listarPresencas,
+  type Presenca,
+} from "./presencas.service";
+import {
+  listarProfessores,
+} from "./professores.service";
 import {
   listarSumarios,
   type Sumario,
@@ -26,13 +36,23 @@ export interface AulaDashboard {
   data: string;
   numeroAlunos: number;
   sumarioPreenchido: boolean;
+  presencasRegistadas: boolean;
+  aulaTerminada: boolean;
 }
 
 export interface DadosDashboard {
   aulasHoje: AulaDashboard[];
   sumariosEmFalta: AulaDashboard[];
+  presencasEmFalta: AulaDashboard[];
   proximaAula: AulaDashboard | null;
+
   totalAlunosHoje: number;
+  totalPresencasHoje: number;
+  totalSumariosHoje: number;
+
+  totalAlunosEscola: number;
+  totalProfessoresEscola: number;
+  totalHorariosEscola: number;
 }
 
 const nomesDiasSemana = [
@@ -45,20 +65,34 @@ const nomesDiasSemana = [
   "Sábado",
 ];
 
-function formatarDataISO(data: Date): string {
+function formatarDataISO(
+  data: Date,
+): string {
   const ano = data.getFullYear();
-  const mes = String(data.getMonth() + 1).padStart(2, "0");
-  const dia = String(data.getDate()).padStart(2, "0");
+
+  const mes = String(
+    data.getMonth() + 1,
+  ).padStart(2, "0");
+
+  const dia = String(
+    data.getDate(),
+  ).padStart(2, "0");
 
   return `${ano}-${mes}-${dia}`;
 }
 
-function criarDataLocal(dataIso: string): Date {
+function criarDataLocal(
+  dataIso: string,
+): Date {
   const [ano, mes, dia] = dataIso
     .split("-")
     .map(Number);
 
-  return new Date(ano, mes - 1, dia);
+  return new Date(
+    ano,
+    mes - 1,
+    dia,
+  );
 }
 
 function adicionarDias(
@@ -78,13 +112,20 @@ function dataHoraDaAula(
   dataIso: string,
   hora: string,
 ): Date {
-  const data = criarDataLocal(dataIso);
+  const data =
+    criarDataLocal(dataIso);
+
   const [horas, minutos] = hora
     .slice(0, 5)
     .split(":")
     .map(Number);
 
-  data.setHours(horas, minutos, 0, 0);
+  data.setHours(
+    horas,
+    minutos,
+    0,
+    0,
+  );
 
   return data;
 }
@@ -96,9 +137,36 @@ function existeSumario(
 ): boolean {
   return sumarios.some(
     (sumario) =>
-      sumario.horario_id === horarioId &&
+      sumario.horario_id ===
+        horarioId &&
       sumario.data === data,
   );
+}
+
+function existemPresencas(
+  presencas: Presenca[],
+  horarioId: string,
+  data: string,
+): boolean {
+  return presencas.some(
+    (presenca) =>
+      presenca.horario_id ===
+        horarioId &&
+      presenca.data === data,
+  );
+}
+
+function contarPresencasDaAula(
+  presencas: Presenca[],
+  horarioId: string,
+  data: string,
+): number {
+  return presencas.filter(
+    (presenca) =>
+      presenca.horario_id ===
+        horarioId &&
+      presenca.data === data,
+  ).length;
 }
 
 function contarAlunosDoHorario(
@@ -107,14 +175,17 @@ function contarAlunosDoHorario(
 ): number {
   return horariosAlunos.filter(
     (registo) =>
-      registo.horario_id === horarioId,
+      registo.horario_id ===
+      horarioId,
   ).length;
 }
 
 function dataTemAulas(
   dataIso: string,
   interrupcoes: Awaited<
-    ReturnType<typeof listarInterrupcoesLetivas>
+    ReturnType<
+      typeof listarInterrupcoesLetivas
+    >
   >,
 ): boolean {
   const interrupcao =
@@ -128,67 +199,125 @@ function dataTemAulas(
   }
 
   const feriado =
-    encontrarFeriadoPortugal(dataIso);
+    encontrarFeriadoPortugal(
+      dataIso,
+    );
 
   return !feriado;
+}
+
+function criarAulaDashboard(
+  horario: Horario,
+  data: string,
+  agora: Date,
+  sumarios: Sumario[],
+  presencas: Presenca[],
+  horariosAlunos: HorarioAluno[],
+): AulaDashboard {
+  const numeroAlunos =
+    contarAlunosDoHorario(
+      horariosAlunos,
+      horario.id,
+    );
+
+  return {
+    horario,
+    data,
+    numeroAlunos,
+
+    sumarioPreenchido:
+      existeSumario(
+        sumarios,
+        horario.id,
+        data,
+      ),
+
+    presencasRegistadas:
+      numeroAlunos === 0 ||
+      existemPresencas(
+        presencas,
+        horario.id,
+        data,
+      ),
+
+    aulaTerminada:
+      dataHoraDaAula(
+        data,
+        horario.hora_fim,
+      ) <= agora,
+  };
 }
 
 export async function obterDadosDashboard(
   professorId?: string | null,
 ): Promise<DadosDashboard> {
   const agora = new Date();
-  const hojeIso = formatarDataISO(agora);
+
+  const hojeIso =
+    formatarDataISO(agora);
 
   const [
     todosHorarios,
     sumarios,
+    presencas,
     horariosAlunos,
     interrupcoes,
     anoLetivo,
+    alunos,
+    professores,
   ] = await Promise.all([
     listarHorarios(),
     listarSumarios(),
+    listarPresencas(),
     listarHorariosAlunos(),
     listarInterrupcoesLetivas(),
     obterAnoLetivoAtual(),
+    listarAlunos(),
+    listarProfessores(),
   ]);
 
   const horarios = professorId
     ? todosHorarios.filter(
         (horario) =>
-          horario.professor_id === professorId,
+          horario.professor_id ===
+          professorId,
       )
     : todosHorarios;
 
   const nomeDiaHoje =
-    nomesDiasSemana[agora.getDay()];
+    nomesDiasSemana[
+      agora.getDay()
+    ];
 
-  const aulasHoje = horarios
-    .filter(
-      (horario) =>
-        horario.dia_semana === nomeDiaHoje,
-    )
-    .filter(() =>
-      dataTemAulas(hojeIso, interrupcoes),
-    )
-    .map((horario) => ({
-      horario,
-      data: hojeIso,
-      numeroAlunos: contarAlunosDoHorario(
-        horariosAlunos,
-        horario.id,
-      ),
-      sumarioPreenchido: existeSumario(
-        sumarios,
-        horario.id,
-        hojeIso,
-      ),
-    }))
-    .sort((a, b) =>
-      a.horario.hora_inicio.localeCompare(
-        b.horario.hora_inicio,
-      ),
+  const existemAulasHoje =
+    dataTemAulas(
+      hojeIso,
+      interrupcoes,
     );
+
+  const aulasHoje = existemAulasHoje
+    ? horarios
+        .filter(
+          (horario) =>
+            horario.dia_semana ===
+            nomeDiaHoje,
+        )
+        .map((horario) =>
+          criarAulaDashboard(
+            horario,
+            hojeIso,
+            agora,
+            sumarios,
+            presencas,
+            horariosAlunos,
+          ),
+        )
+        .sort((a, b) =>
+          a.horario.hora_inicio.localeCompare(
+            b.horario.hora_inicio,
+          ),
+        )
+    : [];
 
   const proximaAula =
     aulasHoje.find(
@@ -200,12 +329,20 @@ export async function obterDadosDashboard(
     ) ?? null;
 
   const dataInicio = anoLetivo
-    ? criarDataLocal(anoLetivo.data_inicio)
-    : adicionarDias(agora, -60);
+    ? criarDataLocal(
+        anoLetivo.data_inicio,
+      )
+    : adicionarDias(
+        agora,
+        -60,
+      );
 
-  const dataFimConfigurada = anoLetivo
-    ? criarDataLocal(anoLetivo.data_fim)
-    : agora;
+  const dataFimConfigurada =
+    anoLetivo
+      ? criarDataLocal(
+          anoLetivo.data_fim,
+        )
+      : agora;
 
   const limiteHoje = new Date(
     agora.getFullYear(),
@@ -214,81 +351,121 @@ export async function obterDadosDashboard(
   );
 
   const dataFim =
-    dataFimConfigurada < limiteHoje
+    dataFimConfigurada <
+    limiteHoje
       ? dataFimConfigurada
       : limiteHoje;
 
-  const sumariosEmFalta: AulaDashboard[] = [];
+  const sumariosEmFalta:
+    AulaDashboard[] = [];
+
+  const presencasEmFalta:
+    AulaDashboard[] = [];
 
   for (
-    let dataAtual = new Date(dataInicio);
+    let dataAtual =
+      new Date(dataInicio);
+
     dataAtual <= dataFim;
-    dataAtual = adicionarDias(dataAtual, 1)
+
+    dataAtual =
+      adicionarDias(
+        dataAtual,
+        1,
+      )
   ) {
     const dataIso =
-      formatarDataISO(dataAtual);
+      formatarDataISO(
+        dataAtual,
+      );
 
     if (
-      !dataTemAulas(dataIso, interrupcoes)
+      !dataTemAulas(
+        dataIso,
+        interrupcoes,
+      )
     ) {
       continue;
     }
 
     const nomeDia =
-      nomesDiasSemana[dataAtual.getDay()];
+      nomesDiasSemana[
+        dataAtual.getDay()
+      ];
 
-    const horariosDoDia = horarios.filter(
-      (horario) =>
-        horario.dia_semana === nomeDia,
-    );
-
-    for (const horario of horariosDoDia) {
-      const fimDaAula = dataHoraDaAula(
-        dataIso,
-        horario.hora_fim,
+    const horariosDoDia =
+      horarios.filter(
+        (horario) =>
+          horario.dia_semana ===
+          nomeDia,
       );
 
-      if (fimDaAula > agora) {
+    for (
+      const horario of
+      horariosDoDia
+    ) {
+      const aula =
+        criarAulaDashboard(
+          horario,
+          dataIso,
+          agora,
+          sumarios,
+          presencas,
+          horariosAlunos,
+        );
+
+      if (!aula.aulaTerminada) {
         continue;
       }
 
       if (
-        existeSumario(
-          sumarios,
-          horario.id,
-          dataIso,
-        )
+        !aula.sumarioPreenchido
       ) {
-        continue;
+        sumariosEmFalta.push(
+          aula,
+        );
       }
 
-      sumariosEmFalta.push({
-        horario,
-        data: dataIso,
-        numeroAlunos: contarAlunosDoHorario(
-          horariosAlunos,
-          horario.id,
-        ),
-        sumarioPreenchido: false,
-      });
+      if (
+        aula.numeroAlunos > 0 &&
+        !aula.presencasRegistadas
+      ) {
+        presencasEmFalta.push(
+          aula,
+        );
+      }
     }
   }
 
-  sumariosEmFalta.sort((a, b) => {
-    const dataA = dataHoraDaAula(
-      a.data,
-      a.horario.hora_inicio,
-    ).getTime();
+  function ordenarMaisRecentes(
+    a: AulaDashboard,
+    b: AulaDashboard,
+  ) {
+    const dataA =
+      dataHoraDaAula(
+        a.data,
+        a.horario.hora_inicio,
+      ).getTime();
 
-    const dataB = dataHoraDaAula(
-      b.data,
-      b.horario.hora_inicio,
-    ).getTime();
+    const dataB =
+      dataHoraDaAula(
+        b.data,
+        b.horario.hora_inicio,
+      ).getTime();
 
     return dataB - dataA;
-  });
+  }
 
-  const alunosHoje = new Set<string>();
+  sumariosEmFalta.sort(
+    ordenarMaisRecentes,
+  );
+
+  presencasEmFalta.sort(
+    ordenarMaisRecentes,
+  );
+
+  const alunosHoje =
+    new Set<string>();
 
   aulasHoje.forEach((aula) => {
     horariosAlunos
@@ -298,14 +475,49 @@ export async function obterDadosDashboard(
           aula.horario.id,
       )
       .forEach((registo) => {
-        alunosHoje.add(registo.aluno_id);
+        alunosHoje.add(
+          registo.aluno_id,
+        );
       });
   });
+
+  const totalPresencasHoje =
+    aulasHoje.reduce(
+      (total, aula) =>
+        total +
+        contarPresencasDaAula(
+          presencas,
+          aula.horario.id,
+          hojeIso,
+        ),
+      0,
+    );
+
+  const totalSumariosHoje =
+    aulasHoje.filter(
+      (aula) =>
+        aula.sumarioPreenchido,
+    ).length;
 
   return {
     aulasHoje,
     sumariosEmFalta,
+    presencasEmFalta,
     proximaAula,
-    totalAlunosHoje: alunosHoje.size,
+
+    totalAlunosHoje:
+      alunosHoje.size,
+
+    totalPresencasHoje,
+    totalSumariosHoje,
+
+    totalAlunosEscola:
+      alunos.length,
+
+    totalProfessoresEscola:
+      professores.length,
+
+    totalHorariosEscola:
+      todosHorarios.length,
   };
 }
