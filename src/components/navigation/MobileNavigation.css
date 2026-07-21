@@ -1,0 +1,279 @@
+.mobile-menu-button {
+  display: none;
+}
+
+.sidebar-overlay {
+  display: none;
+}
+
+.sidebar__badge {
+  display: grid;
+  min-width: 25px;
+  height: 25px;
+  margin-left: auto;
+  padding: 0 7px;
+  place-items: center;
+  border-radius: 999px;
+  background: #f97316;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.sidebar__loading-dot {
+  width: 7px;
+  height: 7px;
+  margin-left: auto;
+  border-radius: 50%;
+  background: #94a3b8;
+}
+
+@media (max-width: 900px) {
+  .mobile-menu-button {
+    position: fixed;
+    top: 14px;
+    left: 14px;
+    z-index: 1002;
+    display: grid;
+    width: 44px;
+    height: 44px;
+    place-items: center;
+    border: 1px solid #dbe3ef;
+    border-radius: 12px;
+    background: #ffffff;
+    color: #172033;
+    cursor: pointer;
+    box-shadow: 0 8px 24px rgb(15 23 42 / 14%);
+  }
+
+  .mobile-menu-button:hover {
+    background: #f8fafc;
+  }
+
+  .sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 998;
+    display: block;
+    width: 100%;
+    height: 100%;
+    background: rgb(15 23 42 / 55%);
+    cursor: pointer;
+  }
+
+  .sidebar {
+    z-index: 999;
+    width: min(82vw, 300px);
+    padding-top: 74px;
+    transform: translateX(-105%);
+    transition:
+      transform 220ms ease,
+      box-shadow 220ms ease;
+  }
+
+  .sidebar--open {
+    transform: translateX(0);
+    box-shadow: 20px 0 50px rgb(15 23 42 / 28%);
+  }
+
+  .sidebar__brand {
+    padding-bottom: 20px;
+  }
+
+  .app-layout__content {
+    width: 100%;
+    margin-left: 0 !important;
+  }
+
+  .dashboard,
+  .page {
+    width: 100%;
+    padding:
+      76px 16px
+      28px !important;
+  }
+
+  .page-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 22px;
+  }
+
+  .page-header h1,
+  .page h1 {
+    font-size: 27px;
+    line-height: 1.15;
+  }
+
+  .page-header p,
+  .page p {
+    line-height: 1.5;
+  }
+
+  .crud-grid,
+  .summary-layout,
+  .users-layout,
+  .profile-layout,
+  .reports-layout,
+  .dashboard-sections,
+  .automatic-groups-layout {
+    grid-template-columns: 1fr !important;
+  }
+
+  .panel {
+    padding: 18px;
+    border-radius: 15px;
+  }
+
+  .form-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .form-actions .button,
+  .form > .button {
+    width: 100%;
+  }
+
+  .button {
+    min-height: 46px;
+  }
+
+  .data-table {
+    min-width: 720px;
+  }
+
+  .table-wrapper {
+    margin-right: -4px;
+    padding-bottom: 7px;
+  }
+
+  .dashboard__grid,
+  .reports-summary-grid,
+  .automatic-groups-summary {
+    grid-template-columns: 1fr !important;
+  }
+
+  .calendar-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .calendar-toolbar__actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .weekly-calendar {
+    grid-template-columns: 1fr !important;
+  }
+
+  .today-lesson {
+    grid-template-columns: 1fr !important;
+  }
+
+  .missing-summary-banner {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .missing-summary-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .reports-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .reports-toolbar__actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .automatic-groups-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .automatic-groups-tabs {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .automatic-group-tab {
+    justify-content: center;
+  }
+
+  .automatic-participants-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .automatic-participant {
+    grid-template-columns:
+      38px minmax(0, 1fr) auto !important;
+  }
+
+  .automatic-participant__origin {
+    display: none;
+  }
+
+  .attendance-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .attendance-row select {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard,
+  .page {
+    padding:
+      72px 11px
+      24px !important;
+  }
+
+  .panel {
+    padding: 15px;
+  }
+
+  .dashboard-card {
+    min-height: 105px;
+    padding: 17px;
+  }
+
+  .dashboard-card strong {
+    font-size: 26px;
+  }
+
+  .page-header h1,
+  .page h1 {
+    font-size: 24px;
+  }
+
+  .form-field input,
+  .form-field select,
+  .form-field textarea {
+    min-height: 46px;
+    font-size: 16px;
+  }
+
+  .form-field textarea {
+    min-height: 130px;
+  }
+
+  .not-found {
+    padding: 16px;
+  }
+
+  .not-found__card {
+    padding: 28px 20px;
+  }
+}
