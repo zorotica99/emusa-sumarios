@@ -1,0 +1,213 @@
+.active-school-year-banner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 22px;
+  padding: 20px 22px;
+  border: 1px solid #bbf7d0;
+  border-radius: 17px;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.active-school-year-banner__icon {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 14px;
+  background: #dcfce7;
+}
+
+.active-school-year-banner span,
+.active-school-year-banner strong,
+.active-school-year-banner p {
+  display: block;
+}
+
+.active-school-year-banner span {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.active-school-year-banner strong {
+  margin-top: 3px;
+  font-size: 22px;
+}
+
+.active-school-year-banner p {
+  margin: 4px 0 0;
+  color: #15803d;
+  font-size: 13px;
+}
+
+.school-years-layout {
+  display: grid;
+  grid-template-columns:
+    minmax(310px, 410px)
+    minmax(0, 1fr);
+  align-items: start;
+  gap: 23px;
+}
+
+.school-years-layout h2,
+.school-years-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.school-years-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.school-years-header h2 {
+  margin: 0;
+}
+
+.school-years-header p {
+  margin: 5px 0 0;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.school-years-list {
+  display: grid;
+  gap: 11px;
+}
+
+.school-year-card {
+  display: grid;
+  grid-template-columns:
+    48px
+    minmax(140px, 1fr)
+    auto
+    auto;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-left-width: 4px;
+  border-radius: 13px;
+  background: #ffffff;
+}
+
+.school-year-card--ativo {
+  border-left-color: #22c55e;
+  background: #f7fff9;
+}
+
+.school-year-card--planeado {
+  border-left-color: #3b82f6;
+}
+
+.school-year-card--arquivado {
+  border-left-color: #94a3b8;
+  background: #f8fafc;
+}
+
+.school-year-card__icon {
+  display: grid;
+  width: 45px;
+  height: 45px;
+  place-items: center;
+  border-radius: 13px;
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.school-year-card--ativo
+  .school-year-card__icon {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.school-year-card--arquivado
+  .school-year-card__icon {
+  background: #e2e8f0;
+  color: #64748b;
+}
+
+.school-year-card__details strong,
+.school-year-card__details span {
+  display: block;
+}
+
+.school-year-card__details strong {
+  color: #172033;
+  font-size: 17px;
+}
+
+.school-year-card__details span {
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.school-year-state {
+  padding: 6px 9px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.school-year-state--ativo {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.school-year-state--planeado {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.school-year-state--arquivado {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.school-year-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+@media (max-width: 1050px) {
+  .school-years-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .school-years-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .school-year-card {
+    grid-template-columns:
+      48px minmax(0, 1fr);
+  }
+
+  .school-year-state {
+    justify-self: start;
+  }
+
+  .school-year-card__actions {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .school-year-card__actions
+    .button {
+    width: 100%;
+  }
+}

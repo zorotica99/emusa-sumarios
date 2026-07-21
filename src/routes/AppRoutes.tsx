@@ -4,7 +4,7 @@ import {
   Routes,
 } from "react-router";
 import Alunos from "../pages/Alunos";
-import AnoLetivo from "../pages/AnoLetivo";
+import AnosLetivos from "../pages/AnosLetivos";
 import Calendario from "../pages/Calendario";
 import Dashboard from "../pages/Dashboard";
 import Disciplinas from "../pages/Disciplinas";
@@ -172,9 +172,9 @@ function AppRoutes() {
       />
 
       <Route
-        path="/ano-letivo"
+        path="/anos-letivos"
         element={protegerAdministrador(
-          <AnoLetivo />,
+          <AnosLetivos />,
         )}
       />
 

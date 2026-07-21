@@ -1,9 +1,9 @@
 import {
   BarChart3,
   BookOpen,
-  CalendarCheck2,
   CalendarDays,
   CalendarOff,
+  CalendarRange,
   CheckSquare,
   ClipboardList,
   Clock,
@@ -118,9 +118,9 @@ const menuAdministrador: MenuItem[] = [
     path: "/relatorios",
   },
   {
-    label: "Ano letivo",
-    icon: CalendarCheck2,
-    path: "/ano-letivo",
+    label: "Anos letivos",
+    icon: CalendarRange,
+    path: "/anos-letivos",
   },
   {
     label: "Interrupções letivas",
@@ -162,9 +162,17 @@ function Sidebar() {
       eAdministrador
         ? [
             menuProfessor[0],
-            ...menuAdministrador.slice(0, 8),
+
+            ...menuAdministrador.slice(
+              0,
+              8,
+            ),
+
             ...menuProfessor.slice(1),
-            ...menuAdministrador.slice(8),
+
+            ...menuAdministrador.slice(
+              8,
+            ),
           ]
         : menuProfessor,
     [eAdministrador],
@@ -388,6 +396,7 @@ function Sidebar() {
             }
           >
             <Settings size={20} />
+
             <span>Minha conta</span>
           </NavLink>
         </nav>
@@ -412,6 +421,7 @@ function Sidebar() {
             onClick={terminarSessao}
           >
             <LogOut size={19} />
+
             <span>Sair</span>
           </button>
         </div>
