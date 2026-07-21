@@ -23,6 +23,10 @@ import {
   type GrupoAutomatico,
   type TipoExcecaoGrupo,
 } from "../../services/gruposAutomaticos.service";
+import {
+  sincronizarHorariosDoGrupoAutomatico,
+  sincronizarTodosOsGruposAutomaticos,
+} from "../../services/sincronizarGruposAutomaticos.service";
 import { obterMensagemErro } from "../../utils/errors";
 import "./GruposAutomaticos.css";
 
@@ -58,6 +62,11 @@ function GruposAutomaticos() {
   const [aGuardar, setAGuardar] =
     useState(false);
 
+  const [
+    aSincronizar,
+    setASincronizar,
+  ] = useState(false);
+
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] =
     useState("");
@@ -84,14 +93,23 @@ function GruposAutomaticos() {
 
       setGrupos(dados);
 
-      if (
-        dados.length > 0 &&
-        !grupoSelecionadoId
-      ) {
-        setGrupoSelecionadoId(
-          dados[0].id,
-        );
-      }
+      setGrupoSelecionadoId(
+        (grupoAtual) => {
+          const grupoAindaExiste =
+            dados.some(
+              (grupo) =>
+                grupo.id === grupoAtual,
+            );
+
+          if (grupoAindaExiste) {
+            return grupoAtual;
+          }
+
+          return dados[0]?.id ?? "";
+        },
+      );
+
+      return dados;
     } catch (error) {
       setErro(
         obterMensagemErro(
@@ -99,6 +117,8 @@ function GruposAutomaticos() {
           "Não foi possível carregar os grupos automáticos.",
         ),
       );
+
+      return [];
     } finally {
       setACarregar(false);
     }
@@ -153,6 +173,14 @@ function GruposAutomaticos() {
       return;
     }
 
+    if (nivelMaximo < nivelMinimo) {
+      setErro(
+        "O nível máximo não pode ser inferior ao nível mínimo.",
+      );
+
+      return;
+    }
+
     try {
       setAGuardar(true);
       setErro("");
@@ -169,16 +197,53 @@ function GruposAutomaticos() {
         },
       );
 
-      await carregarGrupos();
+      const gruposAtualizados =
+        await carregarGrupos();
+
+      const grupoAtualizado =
+        gruposAtualizados.find(
+          (grupo) =>
+            grupo.id ===
+            grupoSelecionado.id,
+        );
+
+      if (!grupoAtualizado) {
+        throw new Error(
+          "Não foi possível encontrar o grupo atualizado.",
+        );
+      }
+
+      await carregarAlunos(
+        grupoAtualizado,
+      );
+
+      const resultado =
+        await sincronizarHorariosDoGrupoAutomatico(
+          grupoAtualizado,
+        );
 
       setSucesso(
-        "Configuração guardada com sucesso.",
+        resultado.totalHorarios === 0
+          ? "Configuração guardada. Ainda não existem horários ligados a este grupo."
+          : `Configuração guardada e ${resultado.totalHorarios} horário${
+              resultado.totalHorarios === 1
+                ? ""
+                : "s"
+            } sincronizado${
+              resultado.totalHorarios === 1
+                ? ""
+                : "s"
+            } com ${resultado.totalParticipantes} participante${
+              resultado.totalParticipantes === 1
+                ? ""
+                : "s"
+            }.`,
       );
     } catch (error) {
       setErro(
         obterMensagemErro(
           error,
-          "Não foi possível guardar a configuração.",
+          "Não foi possível guardar e sincronizar o grupo.",
         ),
       );
     } finally {
@@ -207,6 +272,21 @@ function GruposAutomaticos() {
       await carregarAlunos(
         grupoSelecionado,
       );
+
+      const resultado =
+        await sincronizarHorariosDoGrupoAutomatico(
+          grupoSelecionado,
+        );
+
+      setSucesso(
+        resultado.totalHorarios === 0
+          ? "Participação atualizada."
+          : `Participação atualizada em ${resultado.totalHorarios} horário${
+              resultado.totalHorarios === 1
+                ? ""
+                : "s"
+            }.`,
+      );
     } catch (error) {
       setErro(
         obterMensagemErro(
@@ -214,6 +294,99 @@ function GruposAutomaticos() {
           "Não foi possível alterar a participação do aluno.",
         ),
       );
+    }
+  }
+
+  async function sincronizarGrupoAtual() {
+    if (!grupoSelecionado) {
+      return;
+    }
+
+    try {
+      setASincronizar(true);
+      setErro("");
+      setSucesso("");
+
+      const resultado =
+        await sincronizarHorariosDoGrupoAutomatico(
+          grupoSelecionado,
+        );
+
+      await carregarAlunos(
+        grupoSelecionado,
+      );
+
+      setSucesso(
+        resultado.totalHorarios === 0
+          ? "Não existem horários ligados a este grupo."
+          : `${resultado.totalHorarios} horário${
+              resultado.totalHorarios === 1
+                ? ""
+                : "s"
+            } sincronizado${
+              resultado.totalHorarios === 1
+                ? ""
+                : "s"
+            } com ${resultado.totalParticipantes} participante${
+              resultado.totalParticipantes === 1
+                ? ""
+                : "s"
+            }.`,
+      );
+    } catch (error) {
+      setErro(
+        obterMensagemErro(
+          error,
+          "Não foi possível sincronizar o grupo.",
+        ),
+      );
+    } finally {
+      setASincronizar(false);
+    }
+  }
+
+  async function sincronizarTudo() {
+    try {
+      setASincronizar(true);
+      setErro("");
+      setSucesso("");
+
+      const gruposAtualizados =
+        await listarGruposAutomaticos();
+
+      const resultado =
+        await sincronizarTodosOsGruposAutomaticos(
+          gruposAtualizados,
+        );
+
+      if (grupoSelecionado) {
+        await carregarAlunos(
+          grupoSelecionado,
+        );
+      }
+
+      setSucesso(
+        resultado.totalHorarios === 0
+          ? "Não existem horários de grupos automáticos para sincronizar."
+          : `${resultado.totalHorarios} horário${
+              resultado.totalHorarios === 1
+                ? ""
+                : "s"
+            } sincronizado${
+              resultado.totalHorarios === 1
+                ? ""
+                : "s"
+            }.`,
+      );
+    } catch (error) {
+      setErro(
+        obterMensagemErro(
+          error,
+          "Não foi possível sincronizar os grupos automáticos.",
+        ),
+      );
+    } finally {
+      setASincronizar(false);
     }
   }
 
@@ -262,7 +435,7 @@ function GruposAutomaticos() {
     <main className="page">
       <PageHeader
         title="Grupos automáticos"
-        description="Gerir Orquestra e Classe de Conjunto através dos níveis dos alunos."
+        description="Gerir participantes e sincronizar automaticamente os horários."
       />
 
       {erro && (
@@ -277,32 +450,50 @@ function GruposAutomaticos() {
         </div>
       )}
 
-      <section className="automatic-groups-tabs">
-        {grupos.map((grupo) => (
-          <button
-            key={grupo.id}
-            type="button"
-            className={
-              grupo.id ===
-              grupoSelecionadoId
-                ? "automatic-group-tab automatic-group-tab--active"
-                : "automatic-group-tab"
-            }
-            onClick={() => {
-              setGrupoSelecionadoId(
-                grupo.id,
-              );
+      <section className="automatic-groups-toolbar">
+        <div className="automatic-groups-tabs">
+          {grupos.map((grupo) => (
+            <button
+              key={grupo.id}
+              type="button"
+              className={
+                grupo.id ===
+                grupoSelecionadoId
+                  ? "automatic-group-tab automatic-group-tab--active"
+                  : "automatic-group-tab"
+              }
+              onClick={() => {
+                setGrupoSelecionadoId(
+                  grupo.id,
+                );
 
-              setPesquisa("");
-              setErro("");
-              setSucesso("");
-            }}
-          >
-            <UsersRound size={19} />
+                setPesquisa("");
+                setErro("");
+                setSucesso("");
+              }}
+            >
+              <UsersRound size={19} />
 
-            <span>{grupo.nome}</span>
-          </button>
-        ))}
+              <span>{grupo.nome}</span>
+            </button>
+          ))}
+        </div>
+
+        <button
+          className="button button--secondary"
+          type="button"
+          disabled={
+            aSincronizar ||
+            grupos.length === 0
+          }
+          onClick={sincronizarTudo}
+        >
+          <RefreshCw size={18} />
+
+          {aSincronizar
+            ? "A sincronizar..."
+            : "Sincronizar todos"}
+        </button>
       </section>
 
       {!grupoSelecionado ? (
@@ -430,7 +621,10 @@ function GruposAutomaticos() {
                 <button
                   type="button"
                   className="button button--primary"
-                  disabled={aGuardar}
+                  disabled={
+                    aGuardar ||
+                    aSincronizar
+                  }
                   onClick={
                     guardarConfiguracao
                   }
@@ -439,7 +633,25 @@ function GruposAutomaticos() {
 
                   {aGuardar
                     ? "A guardar..."
-                    : "Guardar configuração"}
+                    : "Guardar e sincronizar"}
+                </button>
+
+                <button
+                  type="button"
+                  className="button button--secondary"
+                  disabled={
+                    aGuardar ||
+                    aSincronizar
+                  }
+                  onClick={
+                    sincronizarGrupoAtual
+                  }
+                >
+                  <RefreshCw size={18} />
+
+                  {aSincronizar
+                    ? "A sincronizar..."
+                    : "Sincronizar este grupo"}
                 </button>
               </div>
             </article>
@@ -450,13 +662,14 @@ function GruposAutomaticos() {
                   <h2>Participantes</h2>
 
                   <p>
-                    Podes incluir ou excluir casos excecionais.
+                    Qualquer alteração é aplicada aos horários deste grupo.
                   </p>
                 </div>
 
                 <button
                   className="button button--secondary"
                   type="button"
+                  disabled={aCarregar}
                   onClick={() =>
                     carregarAlunos(
                       grupoSelecionado,
@@ -464,7 +677,7 @@ function GruposAutomaticos() {
                   }
                 >
                   <RefreshCw size={18} />
-                  Atualizar
+                  Atualizar lista
                 </button>
               </header>
 
@@ -489,6 +702,11 @@ function GruposAutomaticos() {
               {aCarregar ? (
                 <p className="muted-text">
                   A carregar participantes...
+                </p>
+              ) : alunosFiltrados.length ===
+                0 ? (
+                <p className="muted-text">
+                  Não foram encontrados alunos.
                 </p>
               ) : (
                 <div className="automatic-participants-list">
@@ -534,7 +752,7 @@ function GruposAutomaticos() {
                             </span>
                           ) : item.incluidoAutomaticamente ? (
                             <span className="participant-origin">
-                              Pelo nível
+                              Incluído pelo nível
                             </span>
                           ) : (
                             <span className="participant-origin participant-origin--outside">
