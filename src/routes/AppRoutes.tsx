@@ -8,6 +8,7 @@ import AnoLetivo from "../pages/AnoLetivo";
 import Calendario from "../pages/Calendario";
 import Dashboard from "../pages/Dashboard";
 import Disciplinas from "../pages/Disciplinas";
+import GruposAutomaticos from "../pages/GruposAutomaticos";
 import Horarios from "../pages/Horarios";
 import Instrumentos from "../pages/Instrumentos";
 import InterrupcoesLetivas from "../pages/InterrupcoesLetivas";
@@ -25,9 +26,7 @@ import Utilizadores from "../pages/Utilizadores";
 import AdminRoute from "./AdminRoute";
 import ProtectedRoute from "./ProtectedRoute";
 
-function proteger(
-  elemento: ReactNode,
-) {
+function proteger(elemento: ReactNode) {
   return (
     <ProtectedRoute>
       {elemento}
@@ -141,6 +140,13 @@ function AppRoutes() {
         path="/horarios"
         element={protegerAdministrador(
           <Horarios />,
+        )}
+      />
+
+      <Route
+        path="/grupos-automaticos"
+        element={protegerAdministrador(
+          <GruposAutomaticos />,
         )}
       />
 
