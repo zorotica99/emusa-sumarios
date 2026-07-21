@@ -1,67 +1,67 @@
 import {
+  CheckCircle2,
   KeyRound,
-  Plus,
-  UserCheck,
-  UserX,
+  Mail,
+  RefreshCw,
+  Send,
+  ShieldCheck,
+  UserRound,
+  XCircle,
 } from "lucide-react";
 import {
   useEffect,
+  useMemo,
   useState,
+  type FormEvent,
 } from "react";
 import PageHeader from "../../components/common/PageHeader";
-import SelectField from "../../components/forms/SelectField";
+import {
+  criarUtilizador,
+  type PerfilUtilizador,
+} from "../../services/criarUtilizador.service";
 import {
   listarProfessores,
   type Professor,
 } from "../../services/professores.service";
-import {
-  alterarEstadoUtilizador,
-  criarUtilizador,
-  listarUtilizadoresPerfis,
-  type TipoPerfilUtilizador,
-  type UtilizadorPerfil,
-} from "../../services/utilizadoresPerfis.service";
+import { supabase } from "../../lib/supabase";
 import { obterMensagemErro } from "../../utils/errors";
 import "./Utilizadores.css";
 
-interface FormularioData {
+interface UtilizadorPerfil {
+  id: string;
+  auth_user_id: string;
+  professor_id: string | null;
   email: string;
-  password: string;
-  professorId: string;
   nome: string;
-  perfil: TipoPerfilUtilizador;
+  perfil: PerfilUtilizador;
+  ativo: boolean;
 }
 
-const dadosIniciais: FormularioData = {
-  email: "",
-  password: "",
-  professorId: "",
-  nome: "",
-  perfil: "Professor",
-};
-
-const opcoesPerfil = [
-  {
-    value: "Professor",
-    label: "Professor",
-  },
-  {
-    value: "Administrador",
-    label: "Administrador",
-  },
-];
-
 function Utilizadores() {
-  const [utilizadores, setUtilizadores] =
-    useState<UtilizadorPerfil[]>([]);
-
   const [professores, setProfessores] =
     useState<Professor[]>([]);
 
-  const [formulario, setFormulario] =
-    useState<FormularioData>(
-      dadosIniciais,
+  const [utilizadores, setUtilizadores] =
+    useState<UtilizadorPerfil[]>([]);
+
+  const [email, setEmail] =
+    useState("");
+
+  const [nome, setNome] =
+    useState("");
+
+  const [
+    professorId,
+    setProfessorId,
+  ] = useState("");
+
+  const [perfil, setPerfil] =
+    useState<PerfilUtilizador>(
+      "Professor",
     );
+
+  const [ativo, setAtivo] =
+    useState(true);
 
   const [aCarregar, setACarregar] =
     useState(true);
@@ -81,19 +81,42 @@ function Utilizadores() {
       setErro("");
 
       const [
-        dadosUtilizadores,
         dadosProfessores,
+        respostaUtilizadores,
       ] = await Promise.all([
-        listarUtilizadoresPerfis(),
         listarProfessores(),
+
+        supabase
+          .from("utilizadores_perfis")
+          .select(
+            `
+              id,
+              auth_user_id,
+              professor_id,
+              email,
+              nome,
+              perfil,
+              ativo
+            `,
+          )
+          .order("nome", {
+            ascending: true,
+          }),
       ]);
 
-      setUtilizadores(
-        dadosUtilizadores,
-      );
+      if (
+        respostaUtilizadores.error
+      ) {
+        throw respostaUtilizadores.error;
+      }
 
       setProfessores(
         dadosProfessores,
+      );
+
+      setUtilizadores(
+        (respostaUtilizadores.data ??
+          []) as UtilizadorPerfil[],
       );
     } catch (error) {
       setErro(
@@ -111,42 +134,72 @@ function Utilizadores() {
     carregarDados();
   }, []);
 
-  function alterarCampo(
-    campo: keyof FormularioData,
-    valor: string,
-  ) {
-    setFormulario((atual) => ({
-      ...atual,
-      [campo]: valor,
-    }));
+  const professoresDisponiveis =
+    useMemo(() => {
+      const professorIdsLigados =
+        new Set(
+          utilizadores
+            .map(
+              (utilizador) =>
+                utilizador.professor_id,
+            )
+            .filter(Boolean),
+        );
 
-    setErro("");
-    setSucesso("");
-  }
+      return professores.filter(
+        (professor) =>
+          !professorIdsLigados.has(
+            professor.id,
+          ),
+      );
+    }, [
+      professores,
+      utilizadores,
+    ]);
 
-  function alterarProfessor(
-    professorId: string,
+  function selecionarProfessor(
+    id: string,
   ) {
+    setProfessorId(id);
+
     const professor =
       professores.find(
         (item) =>
-          item.id === professorId,
+          item.id === id,
       );
 
-    setFormulario((atual) => ({
-      ...atual,
-      professorId,
-      nome:
-        professor?.nome ??
-        atual.nome,
-    }));
+    if (professor) {
+      setNome(professor.nome);
+
+      const emailProfessor =
+        "email" in professor
+          ? String(
+              professor.email ?? "",
+            )
+          : "";
+
+      if (
+        emailProfessor &&
+        !email.trim()
+      ) {
+        setEmail(emailProfessor);
+      }
+    }
 
     setErro("");
     setSucesso("");
   }
 
-  async function guardar(
-    event: React.FormEvent<HTMLFormElement>,
+  function limparFormulario() {
+    setEmail("");
+    setNome("");
+    setProfessorId("");
+    setPerfil("Professor");
+    setAtivo(true);
+  }
+
+  async function guardarUtilizador(
+    event: FormEvent<HTMLFormElement>,
   ) {
     event.preventDefault();
 
@@ -155,22 +208,25 @@ function Utilizadores() {
       setErro("");
       setSucesso("");
 
-      await criarUtilizador({
-        email: formulario.email,
-        password:
-          formulario.password,
-        nome: formulario.nome,
-        perfil: formulario.perfil,
-        professorId:
-          formulario.professorId,
-      });
+      const resultado =
+        await criarUtilizador({
+          email,
+          nome,
+          professorId:
+            perfil === "Professor"
+              ? professorId
+              : null,
+          perfil,
+          ativo,
+        });
 
-      setFormulario(dadosIniciais);
+      limparFormulario();
 
       await carregarDados();
 
       setSucesso(
-        "Conta criada e acesso configurado com sucesso.",
+        resultado.message ??
+          "Conta criada e convite enviado.",
       );
     } catch (error) {
       setErro(
@@ -184,24 +240,37 @@ function Utilizadores() {
     }
   }
 
-  async function alternarEstado(
+  async function alterarEstado(
     utilizador: UtilizadorPerfil,
   ) {
     try {
       setErro("");
       setSucesso("");
 
-      await alterarEstadoUtilizador(
-        utilizador.id,
-        !utilizador.ativo,
-      );
+      const novoEstado =
+        !utilizador.ativo;
+
+      const { error } =
+        await supabase
+          .from("utilizadores_perfis")
+          .update({
+            ativo: novoEstado,
+          })
+          .eq(
+            "id",
+            utilizador.id,
+          );
+
+      if (error) {
+        throw error;
+      }
 
       await carregarDados();
 
       setSucesso(
-        utilizador.ativo
-          ? "Acesso desativado."
-          : "Acesso ativado.",
+        novoEstado
+          ? "Acesso ativado."
+          : "Acesso desativado.",
       );
     } catch (error) {
       setErro(
@@ -213,33 +282,26 @@ function Utilizadores() {
     }
   }
 
-  function obterProfessorNome(
-    professorId: string | null,
+  function obterNomeProfessor(
+    id: string | null,
   ): string {
-    if (!professorId) {
+    if (!id) {
       return "—";
     }
 
     return (
       professores.find(
         (professor) =>
-          professor.id ===
-          professorId,
+          professor.id === id,
       )?.nome ?? "—"
     );
   }
-
-  const opcoesProfessores =
-    professores.map((professor) => ({
-      value: professor.id,
-      label: professor.nome,
-    }));
 
   return (
     <main className="page">
       <PageHeader
         title="Utilizadores"
-        description="Criar contas e controlar o acesso dos professores."
+        description="Criar contas, enviar convites e controlar os acessos."
       />
 
       {erro && (
@@ -255,46 +317,102 @@ function Utilizadores() {
       )}
 
       <section className="users-layout">
-        <div className="panel">
+        <article className="panel">
           <h2>
             <KeyRound size={21} />
             Nova conta
           </h2>
 
+          <div className="users-invite-info">
+            <Mail size={21} />
+
+            <div>
+              <strong>
+                Convite automático
+              </strong>
+
+              <p>
+                O utilizador receberá um
+                email para definir a sua
+                palavra-passe.
+              </p>
+            </div>
+          </div>
+
           <form
             className="form"
-            onSubmit={guardar}
+            onSubmit={
+              guardarUtilizador
+            }
           >
-            <SelectField
-              id="utilizador-perfil"
-              label="Tipo de acesso"
-              value={formulario.perfil}
-              options={opcoesPerfil}
-              placeholder="Selecione o tipo"
-              onChange={(valor) =>
-                alterarCampo(
-                  "perfil",
-                  valor,
-                )
-              }
-            />
+            <div className="form-field">
+              <label htmlFor="utilizador-perfil">
+                Tipo de acesso
+              </label>
 
-            {formulario.perfil ===
-              "Professor" && (
-              <SelectField
-                id="utilizador-professor"
-                label="Professor associado"
-                value={
-                  formulario.professorId
-                }
-                options={
-                  opcoesProfessores
-                }
-                placeholder="Selecione um professor"
-                onChange={
-                  alterarProfessor
-                }
-              />
+              <select
+                id="utilizador-perfil"
+                value={perfil}
+                onChange={(event) => {
+                  const novoPerfil =
+                    event.target
+                      .value as
+                      PerfilUtilizador;
+
+                  setPerfil(novoPerfil);
+
+                  if (
+                    novoPerfil ===
+                    "Administrador"
+                  ) {
+                    setProfessorId("");
+                  }
+
+                  setErro("");
+                  setSucesso("");
+                }}
+              >
+                <option value="Professor">
+                  Professor
+                </option>
+
+                <option value="Administrador">
+                  Administrador
+                </option>
+              </select>
+            </div>
+
+            {perfil === "Professor" && (
+              <div className="form-field">
+                <label htmlFor="utilizador-professor">
+                  Professor associado
+                </label>
+
+                <select
+                  id="utilizador-professor"
+                  value={professorId}
+                  onChange={(event) =>
+                    selecionarProfessor(
+                      event.target.value,
+                    )
+                  }
+                >
+                  <option value="">
+                    Selecione um professor
+                  </option>
+
+                  {professoresDisponiveis.map(
+                    (professor) => (
+                      <option
+                        key={professor.id}
+                        value={professor.id}
+                      >
+                        {professor.nome}
+                      </option>
+                    ),
+                  )}
+                </select>
+              </div>
             )}
 
             <div className="form-field">
@@ -305,14 +423,16 @@ function Utilizadores() {
               <input
                 id="utilizador-nome"
                 type="text"
-                value={formulario.nome}
-                onChange={(event) =>
-                  alterarCampo(
-                    "nome",
-                    event.target.value,
-                  )
-                }
+                value={nome}
                 placeholder="Nome do utilizador"
+                onChange={(event) => {
+                  setNome(
+                    event.target.value,
+                  );
+
+                  setErro("");
+                  setSucesso("");
+                }}
               />
             </div>
 
@@ -324,148 +444,170 @@ function Utilizadores() {
               <input
                 id="utilizador-email"
                 type="email"
-                value={formulario.email}
-                onChange={(event) =>
-                  alterarCampo(
-                    "email",
-                    event.target.value,
-                  )
-                }
+                value={email}
                 placeholder="professor@emusa.pt"
+                autoComplete="email"
+                onChange={(event) => {
+                  setEmail(
+                    event.target.value,
+                  );
+
+                  setErro("");
+                  setSucesso("");
+                }}
               />
             </div>
 
-            <div className="form-field">
-              <label htmlFor="utilizador-password">
-                Palavra-passe inicial
-              </label>
-
+            <label className="user-active-field">
               <input
-                id="utilizador-password"
-                type="password"
-                value={
-                  formulario.password
-                }
+                type="checkbox"
+                checked={ativo}
                 onChange={(event) =>
-                  alterarCampo(
-                    "password",
-                    event.target.value,
+                  setAtivo(
+                    event.target.checked,
                   )
                 }
-                placeholder="Mínimo de 8 caracteres"
               />
-            </div>
+
+              <span>Acesso ativo</span>
+            </label>
 
             <button
               className="button button--primary"
               type="submit"
               disabled={aGuardar}
             >
-              <Plus size={18} />
+              <Send size={18} />
 
               {aGuardar
                 ? "A criar conta..."
-                : "Criar conta"}
+                : "Criar e enviar convite"}
             </button>
           </form>
-        </div>
+        </article>
 
-        <div className="panel">
-          <h2>
-            Acessos configurados
-          </h2>
+        <article className="panel">
+          <header className="users-list-header">
+            <div>
+              <h2>
+                <ShieldCheck size={21} />
+                Acessos configurados
+              </h2>
+
+              <p>
+                {utilizadores.length}
+                {" "}
+                utilizador
+                {utilizadores.length === 1
+                  ? ""
+                  : "es"}
+              </p>
+            </div>
+
+            <button
+              className="button button--secondary"
+              type="button"
+              disabled={aCarregar}
+              onClick={carregarDados}
+            >
+              <RefreshCw size={18} />
+              Atualizar
+            </button>
+          </header>
 
           {aCarregar ? (
             <p className="muted-text">
-              A carregar...
+              A carregar utilizadores...
+            </p>
+          ) : utilizadores.length === 0 ? (
+            <p className="muted-text">
+              Ainda não existem acessos
+              configurados.
             </p>
           ) : (
-            <div className="table-wrapper">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Nome</th>
-                    <th>Perfil</th>
-                    <th>Professor</th>
-                    <th>Estado</th>
-                    <th className="data-table__actions">
-                      Ações
-                    </th>
-                  </tr>
-                </thead>
+            <div className="users-list">
+              {utilizadores.map(
+                (utilizador) => (
+                  <div
+                    className="user-access-card"
+                    key={utilizador.id}
+                  >
+                    <div className="user-access-card__icon">
+                      <UserRound
+                        size={21}
+                      />
+                    </div>
 
-                <tbody>
-                  {utilizadores.map(
-                    (utilizador) => (
-                      <tr key={utilizador.id}>
-                        <td>
-                          <strong>
-                            {utilizador.nome}
-                          </strong>
-                        </td>
+                    <div className="user-access-card__identity">
+                      <strong>
+                        {utilizador.nome}
+                      </strong>
 
-                        <td>
-                          <span className="user-profile-badge">
-                            {
-                              utilizador.perfil
-                            }
-                          </span>
-                        </td>
+                      <span>
+                        {utilizador.email}
+                      </span>
 
-                        <td>
-                          {obterProfessorNome(
+                      {utilizador.professor_id && (
+                        <small>
+                          Professor:{" "}
+                          {obterNomeProfessor(
                             utilizador.professor_id,
                           )}
-                        </td>
+                        </small>
+                      )}
+                    </div>
 
-                        <td>
-                          <span
-                            className={`user-state ${
-                              utilizador.ativo
-                                ? "user-state--active"
-                                : "user-state--inactive"
-                            }`}
-                          >
-                            {utilizador.ativo
-                              ? "Ativo"
-                              : "Desativado"}
-                          </span>
-                        </td>
+                    <div className="user-access-card__details">
+                      <span className="user-role-badge">
+                        {utilizador.perfil}
+                      </span>
 
-                        <td className="data-table__actions">
-                          <button
-                            className="icon-button"
-                            type="button"
-                            title={
-                              utilizador.ativo
-                                ? "Desativar"
-                                : "Ativar"
-                            }
-                            onClick={() =>
-                              alternarEstado(
-                                utilizador,
-                              )
-                            }
-                          >
-                            {utilizador.ativo ? (
-                              <UserX
-                                size={18}
-                              />
-                            ) : (
-                              <UserCheck
-                                size={18}
-                              />
-                            )}
-                          </button>
-                        </td>
-                      </tr>
-                    ),
-                  )}
-                </tbody>
-              </table>
+                      <span
+                        className={
+                          utilizador.ativo
+                            ? "user-state user-state--active"
+                            : "user-state user-state--inactive"
+                        }
+                      >
+                        {utilizador.ativo ? (
+                          <CheckCircle2
+                            size={15}
+                          />
+                        ) : (
+                          <XCircle
+                            size={15}
+                          />
+                        )}
+
+                        {utilizador.ativo
+                          ? "Ativo"
+                          : "Inativo"}
+                      </span>
+                    </div>
+
+                    <button
+                      className={
+                        utilizador.ativo
+                          ? "button button--secondary"
+                          : "button button--primary"
+                      }
+                      type="button"
+                      onClick={() =>
+                        alterarEstado(
+                          utilizador,
+                        )
+                      }
+                    >
+                      {utilizador.ativo
+                        ? "Desativar"
+                        : "Ativar"}
+                    </button>
+                  </div>
+                ),
+              )}
             </div>
           )}
-        </div>
+        </article>
       </section>
     </main>
   );
