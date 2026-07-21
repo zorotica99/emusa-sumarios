@@ -41,6 +41,8 @@ interface Props {
 
   alunosDisponiveisGrupo: AlunoDisponivel[];
   descricaoGrupo: string;
+  grupoAutomatico: boolean;
+  aCarregarGrupo: boolean;
 
   alunoIndividualId: string;
   alunoIdsGrupo: string[];
@@ -80,6 +82,8 @@ function HorarioForm({
   opcoesAlunos,
   alunosDisponiveisGrupo,
   descricaoGrupo,
+  grupoAutomatico,
+  aCarregarGrupo,
   alunoIndividualId,
   alunoIdsGrupo,
   aGuardar,
@@ -116,15 +120,16 @@ function HorarioForm({
 
       {formulario.tipoAula === "Turma" && (
         <p className="lesson-type-info">
-          Todos os alunos associados à turma serão incluídos
-          automaticamente.
+          Todos os alunos associados à turma serão
+          incluídos automaticamente.
         </p>
       )}
 
       {formulario.tipoAula === "Grupo" && (
         <p className="lesson-type-info">
-          Na Orquestra e na Classe de Conjunto, os alunos são
-          selecionados automaticamente através dos níveis.
+          Orquestra e Classe de Conjunto utilizam
+          automaticamente as regras configuradas em
+          Grupos Automáticos.
         </p>
       )}
 
@@ -168,6 +173,8 @@ function HorarioForm({
             alunos={alunosDisponiveisGrupo}
             selecionados={alunoIdsGrupo}
             descricao={descricaoGrupo}
+            automatico={grupoAutomatico}
+            aCarregar={aCarregarGrupo}
             onToggle={alternarAlunoDoGrupo}
             onSelecionarTodos={
               selecionarTodosAlunosGrupo
@@ -246,7 +253,7 @@ function HorarioForm({
         <button
           className="button button--primary"
           type="submit"
-          disabled={aGuardar}
+          disabled={aGuardar || aCarregarGrupo}
         >
           {aGuardar
             ? "A guardar..."

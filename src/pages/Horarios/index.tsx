@@ -5,6 +5,11 @@ import {
 } from "react";
 import PageHeader from "../../components/common/PageHeader";
 import {
+  obterAlunosDoGrupoAutomatico,
+  obterGrupoAutomaticoPorDisciplina,
+  type GrupoAutomatico,
+} from "../../services/gruposAutomaticos.service";
+import {
   atualizarHorario,
   criarHorario,
   eliminarHorario,
@@ -73,30 +78,6 @@ const opcoesDias = [
   },
 ];
 
-function normalizarTexto(valor: string): string {
-  return valor
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim()
-    .toLowerCase();
-}
-
-function obterNumeroNivel(nomeNivel: string): number | null {
-  const nomeNormalizado = normalizarTexto(nomeNivel);
-
-  if (nomeNormalizado.includes("minion")) {
-    return 0;
-  }
-
-  const resultado = nomeNormalizado.match(/\d+/);
-
-  if (!resultado) {
-    return null;
-  }
-
-  return Number(resultado[0]);
-}
-
 function Horarios() {
   const {
     horarios,
@@ -108,7 +89,6 @@ function Horarios() {
     turmas,
     disciplinas,
     instrumentos,
-    niveis,
     aCarregar,
     erro,
     setErro,
@@ -125,6 +105,24 @@ function Horarios() {
     string[]
   >([]);
 
+  const [
+    grupoAutomatico,
+    setGrupoAutomatico,
+  ] = useState<GrupoAutomatico | null>(null);
+
+  const [
+    alunosAutomaticosDisponiveis,
+    setAlunosAutomaticosDisponiveis,
+  ] = useState<
+    {
+      id: string;
+      nome: string;
+    }[]
+  >([]);
+
+  const [aCarregarGrupo, setACarregarGrupo] =
+    useState(false);
+
   const [horarioEmEdicao, setHorarioEmEdicao] =
     useState<Horario | null>(null);
 
@@ -138,84 +136,82 @@ function Horarios() {
     [alunos],
   );
 
-  const disciplinaSelecionada = useMemo(
-    () =>
-      disciplinas.find(
-        (disciplina) =>
-          disciplina.id === formulario.disciplinaId,
-      ) ?? null,
-    [disciplinas, formulario.disciplinaId],
-  );
+  const alunosDisponiveisGrupo = grupoAutomatico
+    ? alunosAutomaticosDisponiveis
+    : alunosOrdenados;
 
-  const nomeDisciplinaNormalizado = normalizarTexto(
-    disciplinaSelecionada?.nome ?? "",
-  );
+  const descricaoGrupo = grupoAutomatico
+    ? `${grupoAutomatico.nome}: participantes definidos automaticamente pelos níveis e exceções.`
+    : "Selecione manualmente os alunos pertencentes ao grupo.";
 
-  const eOrquestra =
-    nomeDisciplinaNormalizado === "orquestra";
+  function limparGrupoAutomatico() {
+    setGrupoAutomatico(null);
+    setAlunosAutomaticosDisponiveis([]);
+  }
 
-  const eClasseConjunto =
-    nomeDisciplinaNormalizado ===
-    "classe de conjunto";
-
-  const alunosDisponiveisGrupo = useMemo(() => {
-    if (formulario.tipoAula !== "Grupo") {
+  async function carregarGrupoAutomatico(
+    disciplinaId: string,
+  ): Promise<string[]> {
+    if (!disciplinaId.trim()) {
+      limparGrupoAutomatico();
       return [];
     }
 
-    if (!eOrquestra && !eClasseConjunto) {
-      return alunosOrdenados;
+    try {
+      setACarregarGrupo(true);
+
+      const grupo =
+        await obterGrupoAutomaticoPorDisciplina(
+          disciplinaId,
+        );
+
+      if (!grupo) {
+        limparGrupoAutomatico();
+        return [];
+      }
+
+      const participantes =
+        await obterAlunosDoGrupoAutomatico(grupo);
+
+      const alunosParticipantes = participantes
+        .filter((item) => item.participa)
+        .map((item) => ({
+          id: item.aluno.id,
+          nome: item.aluno.nome,
+        }));
+
+      const ids = alunosParticipantes.map(
+        (aluno) => aluno.id,
+      );
+
+      setGrupoAutomatico(grupo);
+      setAlunosAutomaticosDisponiveis(
+        alunosParticipantes,
+      );
+
+      return ids;
+    } catch (error) {
+      limparGrupoAutomatico();
+
+      setErro(
+        obterMensagemErro(
+          error,
+          "Não foi possível carregar o grupo automático.",
+        ),
+      );
+
+      return [];
+    } finally {
+      setACarregarGrupo(false);
     }
-
-    return alunosOrdenados.filter((aluno) => {
-      const perfil = alunosPerfis.find(
-        (item) => item.aluno_id === aluno.id,
-      );
-
-      if (!perfil?.nivel_id) {
-        return false;
-      }
-
-      const nivel = niveis.find(
-        (item) => item.id === perfil.nivel_id,
-      );
-
-      if (!nivel) {
-        return false;
-      }
-
-      const numeroNivel = obterNumeroNivel(nivel.nome);
-
-      if (numeroNivel === null) {
-        return false;
-      }
-
-      if (eOrquestra) {
-        return numeroNivel >= 4 && numeroNivel <= 8;
-      }
-
-      return numeroNivel >= 0 && numeroNivel <= 3;
-    });
-  }, [
-    formulario.tipoAula,
-    eOrquestra,
-    eClasseConjunto,
-    alunosOrdenados,
-    alunosPerfis,
-    niveis,
-  ]);
-
-  const descricaoGrupo = eOrquestra
-    ? "Selecionados automaticamente: alunos do Nível 4 ao Nível 8."
-    : eClasseConjunto
-      ? "Selecionados automaticamente: alunos do Nível Minion ao Nível 3."
-      : "Selecione manualmente os alunos pertencentes ao grupo.";
+  }
 
   function limparFormulario() {
     setFormulario(dadosIniciais);
     setAlunoIndividualId("");
     setAlunoIdsGrupo([]);
     setHorarioEmEdicao(null);
+    limparGrupoAutomatico();
     setErro("");
   }
 
@@ -247,24 +243,29 @@ function Horarios() {
 
     setAlunoIndividualId("");
     setAlunoIdsGrupo([]);
+    limparGrupoAutomatico();
     setErro("");
   }
 
   function obterTurmaIdDoAluno(alunoId: string): string {
     return (
       alunosTurmas.find(
-        (registo) => registo.aluno_id === alunoId,
+        (registo) =>
+          registo.aluno_id === alunoId,
       )?.turma_id ?? ""
     );
   }
 
   function obterPerfilDoAluno(alunoId: string) {
     return alunosPerfis.find(
-      (perfil) => perfil.aluno_id === alunoId,
+      (perfil) =>
+        perfil.aluno_id === alunoId,
     );
   }
 
-  function selecionarAlunoIndividual(alunoId: string) {
+  function selecionarAlunoIndividual(
+    alunoId: string,
+  ) {
     setAlunoIndividualId(alunoId);
 
     if (!alunoId) {
@@ -278,13 +279,17 @@ function Horarios() {
       return;
     }
 
-    const turmaId = obterTurmaIdDoAluno(alunoId);
-    const perfil = obterPerfilDoAluno(alunoId);
+    const turmaId =
+      obterTurmaIdDoAluno(alunoId);
+
+    const perfil =
+      obterPerfilDoAluno(alunoId);
 
     setFormulario((dadosAtuais) => ({
       ...dadosAtuais,
       turmaId,
-      instrumentoId: perfil?.instrumento_id ?? "",
+      instrumentoId:
+        perfil?.instrumento_id ?? "",
     }));
 
     if (!turmaId) {
@@ -304,7 +309,9 @@ function Horarios() {
     setErro("");
   }
 
-  function alterarProfessor(professorId: string) {
+  function alterarProfessor(
+    professorId: string,
+  ) {
     const professor = professores.find(
       (item) => item.id === professorId,
     );
@@ -323,81 +330,51 @@ function Horarios() {
     setErro("");
   }
 
-  function obterAlunosAutomaticosDaDisciplina(
+  async function alterarDisciplina(
     disciplinaId: string,
-  ): string[] {
-    const disciplina = disciplinas.find(
-      (item) => item.id === disciplinaId,
-    );
-
-    const nome = normalizarTexto(
-      disciplina?.nome ?? "",
-    );
-
-    const orquestra = nome === "orquestra";
-
-    const classeConjunto =
-      nome === "classe de conjunto";
-
-    if (!orquestra && !classeConjunto) {
-      return [];
-    }
-
-    return alunosOrdenados
-      .filter((aluno) => {
-        const perfil = alunosPerfis.find(
-          (item) => item.aluno_id === aluno.id,
-        );
-
-        const nivel = niveis.find(
-          (item) => item.id === perfil?.nivel_id,
-        );
-
-        if (!nivel) {
-          return false;
-        }
-
-        const numero = obterNumeroNivel(nivel.nome);
-
-        if (numero === null) {
-          return false;
-        }
-
-        if (orquestra) {
-          return numero >= 4 && numero <= 8;
-        }
-
-        return numero >= 0 && numero <= 3;
-      })
-      .map((aluno) => aluno.id);
-  }
-
-  function alterarDisciplina(disciplinaId: string) {
+  ) {
     setFormulario((dadosAtuais) => ({
       ...dadosAtuais,
       disciplinaId,
     }));
 
-    if (formulario.tipoAula === "Grupo") {
-      setAlunoIdsGrupo(
-        obterAlunosAutomaticosDaDisciplina(
-          disciplinaId,
-        ),
-      );
+    setAlunoIdsGrupo([]);
+    limparGrupoAutomatico();
+    setErro("");
+
+    if (formulario.tipoAula !== "Grupo") {
+      return;
     }
 
-    setErro("");
+    const idsAutomaticos =
+      await carregarGrupoAutomatico(
+        disciplinaId,
+      );
+
+    setAlunoIdsGrupo(idsAutomaticos);
   }
 
-  function alternarAlunoDoGrupo(alunoId: string) {
+  function alternarAlunoDoGrupo(
+    alunoId: string,
+  ) {
+    if (grupoAutomatico) {
+      return;
+    }
+
     setAlunoIdsGrupo((idsAtuais) =>
       idsAtuais.includes(alunoId)
-        ? idsAtuais.filter((id) => id !== alunoId)
+        ? idsAtuais.filter(
+            (id) => id !== alunoId,
+          )
         : [...idsAtuais, alunoId],
     );
   }
 
   function selecionarTodosAlunosGrupo() {
+    if (grupoAutomatico) {
+      return;
+    }
+
     setAlunoIdsGrupo(
       alunosDisponiveisGrupo.map(
         (aluno) => aluno.id,
@@ -406,6 +383,10 @@ function Horarios() {
   }
 
   function limparAlunosGrupo() {
+    if (grupoAutomatico) {
+      return;
+    }
+
     setAlunoIdsGrupo([]);
   }
 
@@ -414,9 +395,13 @@ function Horarios() {
   ): string[] {
     return alunosTurmas
       .filter(
-        (registo) => registo.turma_id === turmaId,
+        (registo) =>
+          registo.turma_id === turmaId,
       )
-      .map((registo) => registo.aluno_id);
+      .map(
+        (registo) =>
+          registo.aluno_id,
+      );
   }
 
   function validarFormulario(): string {
@@ -450,7 +435,9 @@ function Horarios() {
       formulario.tipoAula === "Grupo" &&
       alunoIdsGrupo.length === 0
     ) {
-      return "Selecione pelo menos um aluno para o grupo.";
+      return grupoAutomatico
+        ? "O grupo automático ainda não tem participantes."
+        : "Selecione pelo menos um aluno para o grupo.";
     }
 
     if (!formulario.diaSemana) {
@@ -465,7 +452,10 @@ function Horarios() {
       return "Indique a hora de fim.";
     }
 
-    if (formulario.horaFim <= formulario.horaInicio) {
+    if (
+      formulario.horaFim <=
+      formulario.horaInicio
+    ) {
       return "A hora de fim deve ser posterior à hora de início.";
     }
 
@@ -477,7 +467,35 @@ function Horarios() {
   ) {
     event.preventDefault();
 
-    const erroValidacao = validarFormulario();
+    let alunoIdsAtualizados =
+      alunoIdsGrupo;
+
+    if (
+      formulario.tipoAula === "Grupo" &&
+      grupoAutomatico
+    ) {
+      alunoIdsAtualizados =
+        await carregarGrupoAutomatico(
+          formulario.disciplinaId,
+        );
+
+      setAlunoIdsGrupo(
+        alunoIdsAtualizados,
+      );
+    }
+
+    const erroValidacao =
+      validarFormulario();
+
+    if (
+      formulario.tipoAula === "Grupo" &&
+      alunoIdsAtualizados.length === 0
+    ) {
+      setErro(
+        "Este grupo ainda não tem participantes.",
+      );
+      return;
+    }
 
     if (erroValidacao) {
       setErro(erroValidacao);
@@ -489,37 +507,56 @@ function Horarios() {
       setErro("");
 
       const dados = {
-        professorId: formulario.professorId,
+        professorId:
+          formulario.professorId,
         turmaId: formulario.turmaId,
-        disciplinaId: formulario.disciplinaId,
-        instrumentoId: formulario.instrumentoId,
+        disciplinaId:
+          formulario.disciplinaId,
+        instrumentoId:
+          formulario.instrumentoId,
         tipoAula: formulario.tipoAula,
-        diaSemana: formulario.diaSemana,
-        horaInicio: formulario.horaInicio,
+        diaSemana:
+          formulario.diaSemana,
+        horaInicio:
+          formulario.horaInicio,
         horaFim: formulario.horaFim,
       };
 
-      const horarioGuardado = horarioEmEdicao
-        ? await atualizarHorario(
-            horarioEmEdicao.id,
-            dados,
-          )
-        : await criarHorario(dados);
+      const horarioGuardado =
+        horarioEmEdicao
+          ? await atualizarHorario(
+              horarioEmEdicao.id,
+              dados,
+            )
+          : await criarHorario(dados);
 
       let alunoIds: string[] = [];
 
-      if (formulario.tipoAula === "Individual") {
-        alunoIds = [alunoIndividualId];
+      if (
+        formulario.tipoAula ===
+        "Individual"
+      ) {
+        alunoIds = [
+          alunoIndividualId,
+        ];
       }
 
-      if (formulario.tipoAula === "Turma") {
-        alunoIds = obterAlunoIdsDaTurma(
-          formulario.turmaId,
-        );
+      if (
+        formulario.tipoAula ===
+        "Turma"
+      ) {
+        alunoIds =
+          obterAlunoIdsDaTurma(
+            formulario.turmaId,
+          );
       }
 
-      if (formulario.tipoAula === "Grupo") {
-        alunoIds = alunoIdsGrupo;
+      if (
+        formulario.tipoAula ===
+        "Grupo"
+      ) {
+        alunoIds =
+          alunoIdsAtualizados;
       }
 
       await definirAlunosDoHorario(
@@ -547,36 +584,72 @@ function Horarios() {
     return horariosAlunos
       .filter(
         (registo) =>
-          registo.horario_id === horarioId,
+          registo.horario_id ===
+          horarioId,
       )
-      .map((registo) => registo.aluno_id);
+      .map(
+        (registo) =>
+          registo.aluno_id,
+      );
   }
 
-  function editarHorario(horario: Horario) {
-    const alunoIds = obterAlunoIdsDoHorario(horario.id);
+  async function editarHorario(
+    horario: Horario,
+  ) {
+    const alunoIds =
+      obterAlunoIdsDoHorario(
+        horario.id,
+      );
 
     setHorarioEmEdicao(horario);
 
     setFormulario({
-      tipoAula: horario.tipo_aula ?? "Turma",
-      professorId: horario.professor_id,
+      tipoAula:
+        horario.tipo_aula ?? "Turma",
+      professorId:
+        horario.professor_id,
       turmaId: horario.turma_id,
-      disciplinaId: horario.disciplina_id,
-      instrumentoId: horario.instrumento_id ?? "",
-      diaSemana: horario.dia_semana,
-      horaInicio: horario.hora_inicio.slice(0, 5),
-      horaFim: horario.hora_fim.slice(0, 5),
+      disciplinaId:
+        horario.disciplina_id,
+      instrumentoId:
+        horario.instrumento_id ?? "",
+      diaSemana:
+        horario.dia_semana,
+      horaInicio:
+        horario.hora_inicio.slice(0, 5),
+      horaFim:
+        horario.hora_fim.slice(0, 5),
     });
 
-    if (horario.tipo_aula === "Individual") {
-      setAlunoIndividualId(alunoIds[0] ?? "");
+    if (
+      horario.tipo_aula ===
+      "Individual"
+    ) {
+      setAlunoIndividualId(
+        alunoIds[0] ?? "",
+      );
+
       setAlunoIdsGrupo([]);
-    } else if (horario.tipo_aula === "Grupo") {
+      limparGrupoAutomatico();
+    } else if (
+      horario.tipo_aula === "Grupo"
+    ) {
       setAlunoIndividualId("");
-      setAlunoIdsGrupo(alunoIds);
+
+      const idsAutomaticos =
+        await carregarGrupoAutomatico(
+          horario.disciplina_id,
+        );
+
+      setAlunoIdsGrupo(
+        idsAutomaticos.length > 0
+          ? idsAutomaticos
+          : alunoIds,
+      );
     } else {
       setAlunoIndividualId("");
       setAlunoIdsGrupo([]);
+      limparGrupoAutomatico();
     }
 
     setErro("");
@@ -587,10 +660,13 @@ function Horarios() {
     });
   }
 
-  async function removerHorario(horario: Horario) {
-    const confirmado = window.confirm(
-      "Tem a certeza de que pretende eliminar este horário?",
-    );
+  async function removerHorario(
+    horario: Horario,
+  ) {
+    const confirmado =
+      window.confirm(
+        "Tem a certeza de que pretende eliminar este horário?",
+      );
 
     if (!confirmado) {
       return;
@@ -598,7 +674,11 @@ function Horarios() {
 
     try {
       setErro("");
-      await eliminarHorario(horario.id);
+
+      await eliminarHorario(
+        horario.id,
+      );
+
       await carregarDados();
     } catch (error) {
       setErro(
@@ -610,31 +690,43 @@ function Horarios() {
     }
   }
 
-  function obterNomeAluno(id: string): string {
+  function obterNomeAluno(
+    id: string,
+  ): string {
     return (
-      alunos.find((aluno) => aluno.id === id)?.nome ??
-      "—"
+      alunos.find(
+        (aluno) => aluno.id === id,
+      )?.nome ?? "—"
     );
   }
 
-  function obterNomeProfessor(id: string): string {
+  function obterNomeProfessor(
+    id: string,
+  ): string {
     return (
-      professores.find((item) => item.id === id)?.nome ??
-      "—"
+      professores.find(
+        (item) => item.id === id,
+      )?.nome ?? "—"
     );
   }
 
-  function obterNomeTurma(id: string): string {
+  function obterNomeTurma(
+    id: string,
+  ): string {
     return (
-      turmas.find((item) => item.id === id)?.nome ??
-      "—"
+      turmas.find(
+        (item) => item.id === id,
+      )?.nome ?? "—"
     );
   }
 
-  function obterNomeDisciplina(id: string): string {
+  function obterNomeDisciplina(
+    id: string,
+  ): string {
     return (
-      disciplinas.find((item) => item.id === id)?.nome ??
-      "—"
+      disciplinas.find(
+        (item) => item.id === id,
+      )?.nome ?? "—"
     );
   }
 
@@ -646,71 +738,87 @@ function Horarios() {
     }
 
     return (
-      instrumentos.find((item) => item.id === id)?.nome ??
-      "—"
+      instrumentos.find(
+        (item) => item.id === id,
+      )?.nome ?? "—"
     );
   }
 
   function obterParticipantes(
     horario: Horario,
   ): string {
-    const alunoIds = obterAlunoIdsDoHorario(horario.id);
+    const alunoIds =
+      obterAlunoIdsDoHorario(
+        horario.id,
+      );
 
-    if (horario.tipo_aula === "Individual") {
+    if (
+      horario.tipo_aula ===
+      "Individual"
+    ) {
       return alunoIds[0]
         ? obterNomeAluno(alunoIds[0])
         : "—";
     }
 
     return `${alunoIds.length} aluno${
-      alunoIds.length === 1 ? "" : "s"
+      alunoIds.length === 1
+        ? ""
+        : "s"
     }`;
   }
 
-  const opcoesProfessores = professores.map(
-    (professor) => ({
+  const opcoesProfessores =
+    professores.map((professor) => ({
       value: professor.id,
       label: professor.nome,
-    }),
-  );
+    }));
 
-  const opcoesTurmas = turmas.map((turma) => ({
-    value: turma.id,
-    label: `${turma.nome} — ${turma.ano_letivo}`,
-  }));
+  const opcoesTurmas =
+    turmas.map((turma) => ({
+      value: turma.id,
+      label: `${turma.nome} — ${turma.ano_letivo}`,
+    }));
 
-  const opcoesDisciplinas = disciplinas.map(
-    (disciplina) => ({
+  const opcoesDisciplinas =
+    disciplinas.map((disciplina) => ({
       value: disciplina.id,
       label: disciplina.nome,
-    }),
-  );
+    }));
 
-  const opcoesInstrumentos = instrumentos.map(
-    (instrumento) => ({
-      value: instrumento.id,
-      label: instrumento.nome,
-    }),
-  );
+  const opcoesInstrumentos =
+    instrumentos.map(
+      (instrumento) => ({
+        value: instrumento.id,
+        label: instrumento.nome,
+      }),
+    );
 
-  const opcoesAlunos = alunosOrdenados.map((aluno) => {
-    const perfil = obterPerfilDoAluno(aluno.id);
+  const opcoesAlunos =
+    alunosOrdenados.map((aluno) => {
+      const perfil =
+        obterPerfilDoAluno(
+          aluno.id,
+        );
 
-    const instrumento = perfil?.instrumento_id
-      ? obterNomeInstrumento(perfil.instrumento_id)
-      : "Sem instrumento";
+      const instrumento =
+        perfil?.instrumento_id
+          ? obterNomeInstrumento(
+              perfil.instrumento_id,
+            )
+          : "Sem instrumento";
 
-    return {
-      value: aluno.id,
-      label: `${aluno.nome} — ${instrumento}`,
-    };
-  });
+      return {
+        value: aluno.id,
+        label: `${aluno.nome} — ${instrumento}`,
+      };
+    });
 
   return (
     <main className="page">
       <PageHeader
         title="Horários"
-        description="Gerir aulas individuais, turmas e grupos por níveis."
+        description="Gerir aulas individuais, turmas e grupos automáticos."
       />
 
       {erro && (
@@ -729,25 +837,59 @@ function Horarios() {
 
           <HorarioForm
             formulario={formulario}
-            opcoesTipoAula={opcoesTipoAula}
-            opcoesProfessores={opcoesProfessores}
-            opcoesTurmas={opcoesTurmas}
-            opcoesDisciplinas={opcoesDisciplinas}
-            opcoesInstrumentos={opcoesInstrumentos}
+            opcoesTipoAula={
+              opcoesTipoAula
+            }
+            opcoesProfessores={
+              opcoesProfessores
+            }
+            opcoesTurmas={
+              opcoesTurmas
+            }
+            opcoesDisciplinas={
+              opcoesDisciplinas
+            }
+            opcoesInstrumentos={
+              opcoesInstrumentos
+            }
             opcoesDias={opcoesDias}
-            opcoesAlunos={opcoesAlunos}
+            opcoesAlunos={
+              opcoesAlunos
+            }
             alunosDisponiveisGrupo={
               alunosDisponiveisGrupo
             }
-            descricaoGrupo={descricaoGrupo}
-            alunoIndividualId={alunoIndividualId}
-            alunoIdsGrupo={alunoIdsGrupo}
+            descricaoGrupo={
+              descricaoGrupo
+            }
+            grupoAutomatico={Boolean(
+              grupoAutomatico,
+            )}
+            aCarregarGrupo={
+              aCarregarGrupo
+            }
+            alunoIndividualId={
+              alunoIndividualId
+            }
+            alunoIdsGrupo={
+              alunoIdsGrupo
+            }
             aGuardar={aGuardar}
-            horarioEmEdicao={horarioEmEdicao}
-            alterarTipoAula={alterarTipoAula}
-            alterarCampo={alterarCampo}
-            alterarProfessor={alterarProfessor}
-            alterarDisciplina={alterarDisciplina}
+            horarioEmEdicao={
+              horarioEmEdicao
+            }
+            alterarTipoAula={
+              alterarTipoAula
+            }
+            alterarCampo={
+              alterarCampo
+            }
+            alterarProfessor={
+              alterarProfessor
+            }
+            alterarDisciplina={
+              alterarDisciplina
+            }
             selecionarAlunoIndividual={
               selecionarAlunoIndividual
             }
@@ -757,9 +899,15 @@ function Horarios() {
             selecionarTodosAlunosGrupo={
               selecionarTodosAlunosGrupo
             }
-            limparAlunosGrupo={limparAlunosGrupo}
-            guardarHorario={guardarHorario}
-            cancelarEdicao={limparFormulario}
+            limparAlunosGrupo={
+              limparAlunosGrupo
+            }
+            guardarHorario={
+              guardarHorario
+            }
+            cancelarEdicao={
+              limparFormulario
+            }
           />
         </div>
 
@@ -769,13 +917,27 @@ function Horarios() {
           <HorarioTable
             horarios={horarios}
             aCarregar={aCarregar}
-            obterParticipantes={obterParticipantes}
-            obterNomeProfessor={obterNomeProfessor}
-            obterNomeTurma={obterNomeTurma}
-            obterNomeDisciplina={obterNomeDisciplina}
-            obterNomeInstrumento={obterNomeInstrumento}
-            editarHorario={editarHorario}
-            removerHorario={removerHorario}
+            obterParticipantes={
+              obterParticipantes
+            }
+            obterNomeProfessor={
+              obterNomeProfessor
+            }
+            obterNomeTurma={
+              obterNomeTurma
+            }
+            obterNomeDisciplina={
+              obterNomeDisciplina
+            }
+            obterNomeInstrumento={
+              obterNomeInstrumento
+            }
+            editarHorario={
+              editarHorario
+            }
+            removerHorario={
+              removerHorario
+            }
           />
         </div>
       </section>

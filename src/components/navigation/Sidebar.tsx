@@ -18,6 +18,7 @@ import {
   School,
   Settings,
   Users,
+  UsersRound,
 } from "lucide-react";
 import {
   useCallback,
@@ -103,6 +104,11 @@ const menuAdministrador: MenuItem[] = [
     path: "/horarios",
   },
   {
+    label: "Grupos automáticos",
+    icon: UsersRound,
+    path: "/grupos-automaticos",
+  },
+  {
     label: "Relatórios",
     icon: BarChart3,
     path: "/relatorios",
@@ -147,9 +153,9 @@ function Sidebar() {
   const itens = eAdministrador
     ? [
         menuProfessor[0],
-        ...menuAdministrador.slice(0, 7),
+        ...menuAdministrador.slice(0, 8),
         ...menuProfessor.slice(1),
-        ...menuAdministrador.slice(7),
+        ...menuAdministrador.slice(8),
       ]
     : menuProfessor;
 
@@ -178,7 +184,7 @@ function Sidebar() {
         );
       } catch (error) {
         console.error(
-          "Não foi possível carregar o número de sumários em falta:",
+          "Não foi possível carregar os sumários em falta:",
           error,
         );
 
@@ -197,20 +203,20 @@ function Sidebar() {
   ]);
 
   useEffect(() => {
-    const intervalo = window.setInterval(
-      carregarNumeroSumarios,
-      60000,
-    );
+    const intervalo =
+      window.setInterval(
+        carregarNumeroSumarios,
+        60000,
+      );
 
-    const atualizarAoVoltar =
-      () => {
-        if (
-          document.visibilityState ===
-          "visible"
-        ) {
-          carregarNumeroSumarios();
-        }
-      };
+    function atualizarAoVoltar() {
+      if (
+        document.visibilityState ===
+        "visible"
+      ) {
+        carregarNumeroSumarios();
+      }
+    }
 
     document.addEventListener(
       "visibilitychange",
@@ -273,12 +279,10 @@ function Sidebar() {
               }
             >
               <Icon size={20} />
-
               <span>{label}</span>
 
               {path === "/sumarios" &&
-                numeroSumariosEmFalta >
-                  0 && (
+                numeroSumariosEmFalta > 0 && (
                   <span
                     title={`${numeroSumariosEmFalta} sumários em falta`}
                     style={{
@@ -295,8 +299,7 @@ function Sidebar() {
                       fontWeight: 800,
                     }}
                   >
-                    {numeroSumariosEmFalta >
-                    99
+                    {numeroSumariosEmFalta > 99
                       ? "99+"
                       : numeroSumariosEmFalta}
                   </span>
@@ -304,8 +307,7 @@ function Sidebar() {
 
               {path === "/sumarios" &&
                 aCarregarSumarios &&
-                numeroSumariosEmFalta ===
-                  0 && (
+                numeroSumariosEmFalta === 0 && (
                   <span
                     title="A atualizar..."
                     style={{

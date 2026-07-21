@@ -1,4 +1,7 @@
-import { UsersRound } from "lucide-react";
+import {
+  CheckCircle2,
+  UsersRound,
+} from "lucide-react";
 
 interface AlunoGrupo {
   id: string;
@@ -9,6 +12,8 @@ interface Props {
   alunos: AlunoGrupo[];
   selecionados: string[];
   descricao: string;
+  automatico: boolean;
+  aCarregar?: boolean;
   onToggle: (id: string) => void;
   onSelecionarTodos: () => void;
   onLimpar: () => void;
@@ -18,6 +23,8 @@ function GrupoSelector({
   alunos,
   selecionados,
   descricao,
+  automatico,
+  aCarregar = false,
   onToggle,
   onSelecionarTodos,
   onLimpar,
@@ -39,10 +46,37 @@ function GrupoSelector({
         </span>
       </header>
 
-      {alunos.length === 0 ? (
+      {aCarregar ? (
         <p className="student-selection__empty">
-          Não existem alunos com os níveis necessários.
+          A carregar participantes...
         </p>
+      ) : alunos.length === 0 ? (
+        <p className="student-selection__empty">
+          Não existem alunos disponíveis.
+        </p>
+      ) : automatico ? (
+        <>
+          <div className="lesson-type-info">
+            Os participantes são atualizados automaticamente
+            através dos níveis e das exceções configuradas.
+          </div>
+
+          <div className="student-selection__list">
+            {alunos.map((aluno) => (
+              <div
+                className="student-selection__row"
+                key={aluno.id}
+              >
+                <CheckCircle2
+                  size={18}
+                  className="automatic-student-check"
+                />
+
+                <span>{aluno.nome}</span>
+              </div>
+            ))}
+          </div>
+        </>
       ) : (
         <>
           <div className="attendance-quick-actions">
