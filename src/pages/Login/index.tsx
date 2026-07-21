@@ -1,19 +1,38 @@
-import { LockKeyhole, LogIn, Music2 } from "lucide-react";
+import {
+  LockKeyhole,
+  LogIn,
+  Music2,
+} from "lucide-react";
 import { useState } from "react";
-import { Navigate } from "react-router";
+import {
+  Link,
+  Navigate,
+} from "react-router";
 import { useAuth } from "../../hooks/useAuth";
 import { obterMensagemErro } from "../../utils/errors";
 
 function Login() {
   const { login, session } = useAuth();
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [aEntrar, setAEntrar] = useState(false);
-  const [erro, setErro] = useState("");
+  const [email, setEmail] =
+    useState("");
+
+  const [password, setPassword] =
+    useState("");
+
+  const [aEntrar, setAEntrar] =
+    useState(false);
+
+  const [erro, setErro] =
+    useState("");
 
   if (session) {
-    return <Navigate to="/" replace />;
+    return (
+      <Navigate
+        to="/"
+        replace
+      />
+    );
   }
 
   async function submeter(
@@ -22,7 +41,10 @@ function Login() {
     event.preventDefault();
 
     if (!email.trim() || !password) {
-      setErro("Preencha o email e a palavra-passe.");
+      setErro(
+        "Preencha o email e a palavra-passe.",
+      );
+
       return;
     }
 
@@ -30,7 +52,10 @@ function Login() {
       setAEntrar(true);
       setErro("");
 
-      await login(email.trim(), password);
+      await login(
+        email.trim(),
+        password,
+      );
     } catch (error) {
       setErro(
         obterMensagemErro(
@@ -52,27 +77,45 @@ function Login() {
 
         <div className="login-card__header">
           <h1>EMUSA Sumários</h1>
-          <p>Inicie sessão para entrar na aplicação.</p>
+
+          <p>
+            Inicie sessão para entrar na aplicação.
+          </p>
         </div>
 
-        {erro && <div className="alert alert--error">{erro}</div>}
+        {erro && (
+          <div className="alert alert--error">
+            {erro}
+          </div>
+        )}
 
-        <form className="form" onSubmit={submeter}>
+        <form
+          className="form"
+          onSubmit={submeter}
+        >
           <div className="form-field">
-            <label htmlFor="login-email">Email</label>
+            <label htmlFor="login-email">
+              Email
+            </label>
 
             <input
               id="login-email"
               type="email"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={(event) =>
+                setEmail(
+                  event.target.value,
+                )
+              }
               placeholder="email@emusa.pt"
               autoComplete="email"
             />
           </div>
 
           <div className="form-field">
-            <label htmlFor="login-password">Palavra-passe</label>
+            <label htmlFor="login-password">
+              Palavra-passe
+            </label>
 
             <div className="login-password">
               <LockKeyhole size={18} />
@@ -82,7 +125,9 @@ function Login() {
                 type="password"
                 value={password}
                 onChange={(event) =>
-                  setPassword(event.target.value)
+                  setPassword(
+                    event.target.value,
+                  )
                 }
                 placeholder="Palavra-passe"
                 autoComplete="current-password"
@@ -97,8 +142,17 @@ function Login() {
           >
             <LogIn size={18} />
 
-            {aEntrar ? "A entrar..." : "Entrar"}
+            {aEntrar
+              ? "A entrar..."
+              : "Entrar"}
           </button>
+
+          <Link
+            className="login-forgot-password"
+            to="/recuperar-password"
+          >
+            Esqueci-me da palavra-passe
+          </Link>
         </form>
       </section>
     </main>

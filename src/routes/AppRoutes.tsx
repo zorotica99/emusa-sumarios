@@ -15,9 +15,11 @@ import InterrupcoesLetivas from "../pages/InterrupcoesLetivas";
 import Login from "../pages/Login";
 import Niveis from "../pages/Niveis";
 import NotFound from "../pages/NotFound";
+import NovaPassword from "../pages/NovaPassword";
 import Perfil from "../pages/Perfil";
 import Presencas from "../pages/Presencas";
 import Professores from "../pages/Professores";
+import RecuperarPassword from "../pages/RecuperarPassword";
 import RelatorioAluno from "../pages/RelatorioAluno";
 import Relatorios from "../pages/Relatorios";
 import Sumarios from "../pages/Sumarios";
@@ -26,7 +28,9 @@ import Utilizadores from "../pages/Utilizadores";
 import AdminRoute from "./AdminRoute";
 import ProtectedRoute from "./ProtectedRoute";
 
-function proteger(elemento: ReactNode) {
+function proteger(
+  elemento: ReactNode,
+) {
   return (
     <ProtectedRoute>
       {elemento}
@@ -50,6 +54,16 @@ function AppRoutes() {
       <Route
         path="/login"
         element={<Login />}
+      />
+
+      <Route
+        path="/recuperar-password"
+        element={<RecuperarPassword />}
+      />
+
+      <Route
+        path="/nova-password"
+        element={<NovaPassword />}
       />
 
       <Route
