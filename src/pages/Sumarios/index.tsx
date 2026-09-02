@@ -129,6 +129,23 @@ function formatarData(dataIso: string): string {
   }).format(data);
 }
 
+function obterDataHojeIso(): string {
+  const agora = new Date();
+  const ano = agora.getFullYear();
+  const mes = String(agora.getMonth() + 1).padStart(2, "0");
+  const dia = String(agora.getDate()).padStart(2, "0");
+
+  return `${ano}-${mes}-${dia}`;
+}
+
+function obterHoraAtual(): string {
+  const agora = new Date();
+  const horas = String(agora.getHours()).padStart(2, "0");
+  const minutos = String(agora.getMinutes()).padStart(2, "0");
+
+  return `${horas}:${minutos}`;
+}
+
 function Sumarios() {
   const [searchParams] = useSearchParams();
 
@@ -180,6 +197,18 @@ function Sumarios() {
 
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState("");
+
+  const [instanteAtual, setInstanteAtual] = useState(() =>
+    new Date(),
+  );
+
+  useEffect(() => {
+    const intervalo = window.setInterval(() => {
+      setInstanteAtual(new Date());
+    }, 30000);
+
+    return () => window.clearInterval(intervalo);
+  }, []);
 
   async function carregarDados() {
     try {
@@ -276,6 +305,27 @@ function Sumarios() {
     );
   }
 
+  function professorPodeRegistarAula(
+    data: string,
+    horario: Horario,
+  ): boolean {
+    if (eAdministrador) {
+      return true;
+    }
+
+    const hoje = obterDataHojeIso();
+
+    if (data < hoje) {
+      return true;
+    }
+
+    if (data > hoje) {
+      return false;
+    }
+
+    return horario.hora_inicio.slice(0, 5) <= obterHoraAtual();
+  }
+
   const sumariosVisiveis = useMemo(
     () =>
       sumarios
@@ -312,7 +362,11 @@ function Sumarios() {
     return horariosDoProfessor
       .filter(
         (horario) =>
-          horario.dia_semana === nomeDia,
+          horario.dia_semana === nomeDia &&
+          professorPodeRegistarAula(
+            formulario.data,
+            horario,
+          ),
       )
       .sort((a, b) =>
         a.hora_inicio.localeCompare(
@@ -324,6 +378,7 @@ function Sumarios() {
     horariosDoProfessor,
     eAdministrador,
     anoLetivoAtivo,
+    instanteAtual,
   ]);
 
   const horarioSelecionado = useMemo(
@@ -711,6 +766,20 @@ function Sumarios() {
       return;
     }
 
+    if (
+      !eAdministrador &&
+      horarioSelecionado &&
+      !professorPodeRegistarAula(
+        formulario.data,
+        horarioSelecionado,
+      )
+    ) {
+      setErro(
+        `Este sumário só pode ser registado a partir das ${horarioSelecionado.hora_inicio.slice(0, 5)}, quando a aula começar.`,
+      );
+      return;
+    }
+
     if (!formulario.conteudo.trim()) {
       setErro(
         "O conteúdo do sumário é obrigatório.",
@@ -885,7 +954,9 @@ function Sumarios() {
                 }
                 max={
                   !eAdministrador && anoLetivoAtivo
-                    ? anoLetivoAtivo.data_fim
+                    ? anoLetivoAtivo.data_fim < obterDataHojeIso()
+                      ? anoLetivoAtivo.data_fim
+                      : obterDataHojeIso()
                     : undefined
                 }
                 disabled={sumarioBloqueadoParaProfessor}
@@ -923,7 +994,10 @@ function Sumarios() {
                   ? "Selecione primeiro a data"
                   : horariosDaData.length
                     ? "Selecione a aula"
-                    : "Não existem aulas neste dia"
+                    : !eAdministrador &&
+                        formulario.data === obterDataHojeIso()
+                      ? "Ainda não existem aulas disponíveis para sumário"
+                      : "Não existem aulas neste dia"
               }
               disabled={
                 sumarioBloqueadoParaProfessor ||
