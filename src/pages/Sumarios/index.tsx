@@ -20,6 +20,10 @@ import PageHeader from "../../components/common/PageHeader";
 import SelectField from "../../components/forms/SelectField";
 import { useAuth } from "../../hooks/useAuth";
 import {
+  obterAnoLetivoAtivo,
+  type AnoLetivo,
+} from "../../services/anosLetivos.service";
+import {
   listarAlunos,
   type Aluno,
 } from "../../services/alunos.service";
@@ -148,6 +152,8 @@ function Sumarios() {
   const [disciplinas, setDisciplinas] = useState<
     Disciplina[]
   >([]);
+  const [anoLetivoAtivo, setAnoLetivoAtivo] =
+    useState<AnoLetivo | null>(null);
 
   const [formulario, setFormulario] =
     useState<SumarioFormData>(dadosIniciais);
@@ -189,6 +195,7 @@ function Sumarios() {
         dadosProfessores,
         dadosTurmas,
         dadosDisciplinas,
+        dadosAnoLetivoAtivo,
       ] = await Promise.all([
         listarSumarios(),
         listarHorarios(),
@@ -198,6 +205,7 @@ function Sumarios() {
         listarProfessores(),
         listarTurmas(),
         listarDisciplinas(),
+        obterAnoLetivoAtivo(),
       ]);
 
       setSumarios(dadosSumarios);
@@ -208,6 +216,7 @@ function Sumarios() {
       setProfessores(dadosProfessores);
       setTurmas(dadosTurmas);
       setDisciplinas(dadosDisciplinas);
+      setAnoLetivoAtivo(dadosAnoLetivoAtivo);
     } catch (error) {
       setErro(
         obterMensagemErro(
@@ -252,22 +261,49 @@ function Sumarios() {
     [horariosDoProfessor],
   );
 
+  function dataPertenceAoAnoAtivo(data: string): boolean {
+    if (eAdministrador) {
+      return true;
+    }
+
+    if (!anoLetivoAtivo) {
+      return false;
+    }
+
+    return (
+      data >= anoLetivoAtivo.data_inicio &&
+      data <= anoLetivoAtivo.data_fim
+    );
+  }
+
   const sumariosVisiveis = useMemo(
     () =>
       sumarios
-        .filter((sumario) =>
-          horarioIdsPermitidos.has(
-            sumario.horario_id,
-          ),
+        .filter(
+          (sumario) =>
+            horarioIdsPermitidos.has(sumario.horario_id) &&
+            (eAdministrador ||
+              (anoLetivoAtivo !== null &&
+                sumario.data >= anoLetivoAtivo.data_inicio &&
+                sumario.data <= anoLetivoAtivo.data_fim)),
         )
         .sort((a, b) =>
           b.data.localeCompare(a.data),
         ),
-    [sumarios, horarioIdsPermitidos],
+    [
+      sumarios,
+      horarioIdsPermitidos,
+      eAdministrador,
+      anoLetivoAtivo,
+    ],
   );
 
   const horariosDaData = useMemo(() => {
     if (!formulario.data) {
+      return [];
+    }
+
+    if (!dataPertenceAoAnoAtivo(formulario.data)) {
       return [];
     }
 
@@ -283,7 +319,12 @@ function Sumarios() {
           b.hora_inicio,
         ),
       );
-  }, [formulario.data, horariosDoProfessor]);
+  }, [
+    formulario.data,
+    horariosDoProfessor,
+    eAdministrador,
+    anoLetivoAtivo,
+  ]);
 
   const horarioSelecionado = useMemo(
     () =>
@@ -417,7 +458,15 @@ function Sumarios() {
             formulario.data,
           );
 
-        setUltimoSumario(ultimo);
+        if (
+          ultimo &&
+          !eAdministrador &&
+          !dataPertenceAoAnoAtivo(ultimo.data)
+        ) {
+          setUltimoSumario(null);
+        } else {
+          setUltimoSumario(ultimo);
+        }
       } catch (error) {
         console.error(
           "Erro ao carregar último sumário:",
@@ -434,6 +483,8 @@ function Sumarios() {
   }, [
     formulario.horarioId,
     formulario.data,
+    eAdministrador,
+    anoLetivoAtivo,
   ]);
 
   useEffect(() => {
@@ -517,10 +568,14 @@ function Sumarios() {
   function obterDescricaoHorario(
     horario: Horario,
   ): string {
-    const participantes = horariosAlunos.filter(
-      (registo) =>
-        registo.horario_id === horario.id,
-    ).length;
+    const participantes =
+      horario.tipo_aula === "Turma"
+        ? alunosTurmas.filter(
+            (registo) => registo.turma_id === horario.turma_id,
+          ).length
+        : horariosAlunos.filter(
+            (registo) => registo.horario_id === horario.id,
+          ).length;
 
     return [
       `${horario.hora_inicio.slice(
@@ -628,6 +683,15 @@ function Sumarios() {
 
     if (!formulario.data) {
       setErro("Selecione a data da aula.");
+      return;
+    }
+
+    if (!dataPertenceAoAnoAtivo(formulario.data)) {
+      setErro(
+        anoLetivoAtivo
+          ? `Os professores só podem registar sumários no ano letivo ativo (${anoLetivoAtivo.nome}).`
+          : "Não existe um ano letivo ativo. Contacte o administrador.",
+      );
       return;
     }
 
@@ -814,6 +878,16 @@ function Sumarios() {
                 id="sumario-data"
                 type="date"
                 value={formulario.data}
+                min={
+                  !eAdministrador && anoLetivoAtivo
+                    ? anoLetivoAtivo.data_inicio
+                    : undefined
+                }
+                max={
+                  !eAdministrador && anoLetivoAtivo
+                    ? anoLetivoAtivo.data_fim
+                    : undefined
+                }
                 disabled={sumarioBloqueadoParaProfessor}
                 onChange={(event) =>
                   alterarData(
