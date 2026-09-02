@@ -70,10 +70,23 @@ function Turmas() {
     campo: keyof TurmaFormData,
     valor: string,
   ) {
-    setFormulario((dadosAtuais) => ({
-      ...dadosAtuais,
-      [campo]: valor,
-    }));
+    setFormulario((dadosAtuais) => {
+      if (
+        campo === "tipoTurma" &&
+        valor === "Conjunto"
+      ) {
+        return {
+          ...dadosAtuais,
+          tipoTurma: "Conjunto",
+          nivelId: "",
+        };
+      }
+
+      return {
+        ...dadosAtuais,
+        [campo]: valor,
+      };
+    });
   }
 
   async function guardarTurma(
@@ -86,8 +99,13 @@ function Turmas() {
       return;
     }
 
-    if (!formulario.nivelId) {
-      setErro("Selecione um nível.");
+    if (
+      formulario.tipoTurma === "Principal" &&
+      !formulario.nivelId
+    ) {
+      setErro(
+        "Selecione um nível para a turma principal.",
+      );
       return;
     }
 
@@ -129,7 +147,7 @@ function Turmas() {
 
     setFormulario({
       nome: turma.nome,
-      nivelId: turma.nivel_id,
+      nivelId: turma.nivel_id ?? "",
       anoLetivo: turma.ano_letivo,
       tipoTurma: turma.tipo_turma,
     });
@@ -165,7 +183,11 @@ function Turmas() {
     }
   }
 
-  function obterNomeNivel(nivelId: string) {
+  function obterNomeNivel(nivelId: string | null) {
+    if (!nivelId) {
+      return "—";
+    }
+
     return (
       niveis.find((nivel) => nivel.id === nivelId)?.nome ??
       "—"
@@ -252,19 +274,29 @@ function Turmas() {
               }
             />
 
-            <SelectField
-              id="turma-nivel"
-              label="Nível"
-              value={formulario.nivelId}
-              options={opcoesNiveis}
-              placeholder="Selecione um nível"
-              onChange={(valor) =>
-                alterarCampo(
-                  "nivelId",
-                  valor,
-                )
-              }
-            />
+            {formulario.tipoTurma === "Principal" && (
+              <SelectField
+                id="turma-nivel"
+                label="Nível"
+                value={formulario.nivelId}
+                options={opcoesNiveis}
+                placeholder="Selecione um nível"
+                onChange={(valor) =>
+                  alterarCampo(
+                    "nivelId",
+                    valor,
+                  )
+                }
+              />
+            )}
+
+            {formulario.tipoTurma === "Conjunto" && (
+              <div className="alert alert--info">
+                As classes de conjunto podem incluir alunos
+                de vários níveis, por isso não necessitam
+                de um nível próprio.
+              </div>
+            )}
 
             <div className="form-field">
               <label htmlFor="turma-ano-letivo">
@@ -343,17 +375,24 @@ function Turmas() {
                   {turmas.map((turma) => (
                     <tr key={turma.id}>
                       <td>{turma.nome}</td>
+
                       <td>
                         {obterNomeTipo(
                           turma.tipo_turma,
                         )}
                       </td>
+
                       <td>
-                        {obterNomeNivel(
-                          turma.nivel_id,
-                        )}
+                        {turma.tipo_turma === "Principal"
+                          ? obterNomeNivel(
+                              turma.nivel_id,
+                            )
+                          : "Vários níveis"}
                       </td>
-                      <td>{turma.ano_letivo}</td>
+
+                      <td>
+                        {turma.ano_letivo}
+                      </td>
 
                       <td className="data-table__actions">
                         <button

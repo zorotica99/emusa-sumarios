@@ -7,7 +7,7 @@ export type TipoTurma =
 export interface Turma {
   id: string;
   nome: string;
-  nivel_id: string;
+  nivel_id: string | null;
   ano_letivo: string;
   tipo_turma: TipoTurma;
 }
@@ -45,14 +45,6 @@ export async function criarTurma(
     throw new Error("O nome da turma é obrigatório.");
   }
 
-  if (!nivelId) {
-    throw new Error("Selecione um nível.");
-  }
-
-  if (!anoLetivo) {
-    throw new Error("O ano letivo é obrigatório.");
-  }
-
   if (
     dados.tipoTurma !== "Principal" &&
     dados.tipoTurma !== "Conjunto"
@@ -60,11 +52,29 @@ export async function criarTurma(
     throw new Error("Selecione o tipo de turma.");
   }
 
+  if (
+    dados.tipoTurma === "Principal" &&
+    !nivelId
+  ) {
+    throw new Error(
+      "Selecione um nível para a turma principal.",
+    );
+  }
+
+  if (!anoLetivo) {
+    throw new Error(
+      "O ano letivo é obrigatório.",
+    );
+  }
+
   const { data, error } = await supabase
     .from("turmas")
     .insert({
       nome,
-      nivel_id: nivelId,
+      nivel_id:
+        dados.tipoTurma === "Principal"
+          ? nivelId
+          : null,
       ano_letivo: anoLetivo,
       tipo_turma: dados.tipoTurma,
     })
@@ -96,14 +106,6 @@ export async function atualizarTurma(
     throw new Error("O nome da turma é obrigatório.");
   }
 
-  if (!nivelId) {
-    throw new Error("Selecione um nível.");
-  }
-
-  if (!anoLetivo) {
-    throw new Error("O ano letivo é obrigatório.");
-  }
-
   if (
     dados.tipoTurma !== "Principal" &&
     dados.tipoTurma !== "Conjunto"
@@ -111,11 +113,29 @@ export async function atualizarTurma(
     throw new Error("Selecione o tipo de turma.");
   }
 
+  if (
+    dados.tipoTurma === "Principal" &&
+    !nivelId
+  ) {
+    throw new Error(
+      "Selecione um nível para a turma principal.",
+    );
+  }
+
+  if (!anoLetivo) {
+    throw new Error(
+      "O ano letivo é obrigatório.",
+    );
+  }
+
   const { data, error } = await supabase
     .from("turmas")
     .update({
       nome,
-      nivel_id: nivelId,
+      nivel_id:
+        dados.tipoTurma === "Principal"
+          ? nivelId
+          : null,
       ano_letivo: anoLetivo,
       tipo_turma: dados.tipoTurma,
     })

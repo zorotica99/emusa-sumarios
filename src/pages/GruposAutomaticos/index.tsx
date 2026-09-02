@@ -1,12 +1,6 @@
 import {
-  Check,
   RefreshCw,
-  Save,
-  Settings2,
-  UserMinus,
-  UserPlus,
   UsersRound,
-  X,
 } from "lucide-react";
 import {
   useEffect,
@@ -15,43 +9,60 @@ import {
 } from "react";
 import PageHeader from "../../components/common/PageHeader";
 import {
-  atualizarGrupoAutomatico,
-  definirExcecaoGrupo,
-  listarGruposAutomaticos,
-  obterAlunosDoGrupoAutomatico,
-  type AlunoGrupoAutomatico,
-  type GrupoAutomatico,
-  type TipoExcecaoGrupo,
-} from "../../services/gruposAutomaticos.service";
+  listarAlunos,
+  type Aluno,
+} from "../../services/alunos.service";
 import {
-  sincronizarHorariosDoGrupoAutomatico,
-  sincronizarTodosOsGruposAutomaticos,
-} from "../../services/sincronizarGruposAutomaticos.service";
+  listarAlunosPerfis,
+  type AlunoPerfil,
+} from "../../services/alunosPerfis.service";
+import {
+  listarAlunosTurmas,
+  type AlunoTurma,
+} from "../../services/alunosTurmas.service";
+import {
+  listarInstrumentos,
+  type Instrumento,
+} from "../../services/instrumentos.service";
+import {
+  listarNiveis,
+  type Nivel,
+} from "../../services/niveis.service";
+import {
+  listarTurmas,
+  type Turma,
+} from "../../services/turmas.service";
 import { obterMensagemErro } from "../../utils/errors";
-import "./GruposAutomaticos.css";
+
+interface AlunoClasseConjunto {
+  aluno: Aluno;
+  turmaPrincipal: Turma | null;
+  instrumento: Instrumento | null;
+  nivel: Nivel | null;
+}
 
 function GruposAutomaticos() {
-  const [grupos, setGrupos] = useState<
-    GrupoAutomatico[]
+  const [alunos, setAlunos] = useState<Aluno[]>([]);
+  const [turmas, setTurmas] = useState<Turma[]>([]);
+
+  const [alunosTurmas, setAlunosTurmas] = useState<
+    AlunoTurma[]
   >([]);
+
+  const [perfis, setPerfis] = useState<
+    AlunoPerfil[]
+  >([]);
+
+  const [instrumentos, setInstrumentos] = useState<
+    Instrumento[]
+  >([]);
+
+  const [niveis, setNiveis] = useState<Nivel[]>([]);
 
   const [
-    grupoSelecionadoId,
-    setGrupoSelecionadoId,
+    classeSelecionadaId,
+    setClasseSelecionadaId,
   ] = useState("");
-
-  const [alunos, setAlunos] = useState<
-    AlunoGrupoAutomatico[]
-  >([]);
-
-  const [nivelMinimo, setNivelMinimo] =
-    useState(0);
-
-  const [nivelMaximo, setNivelMaximo] =
-    useState(8);
-
-  const [ativo, setAtivo] =
-    useState(true);
 
   const [pesquisa, setPesquisa] =
     useState("");
@@ -59,383 +70,282 @@ function GruposAutomaticos() {
   const [aCarregar, setACarregar] =
     useState(true);
 
-  const [aGuardar, setAGuardar] =
-    useState(false);
-
-  const [
-    aSincronizar,
-    setASincronizar,
-  ] = useState(false);
-
-  const [erro, setErro] = useState("");
-  const [sucesso, setSucesso] =
+  const [erro, setErro] =
     useState("");
 
-  const grupoSelecionado = useMemo(
+  async function carregarDados() {
+    try {
+      setACarregar(true);
+      setErro("");
+
+      const [
+        dadosAlunos,
+        dadosTurmas,
+        dadosAlunosTurmas,
+        dadosPerfis,
+        dadosInstrumentos,
+        dadosNiveis,
+      ] = await Promise.all([
+        listarAlunos(),
+        listarTurmas(),
+        listarAlunosTurmas(),
+        listarAlunosPerfis(),
+        listarInstrumentos(),
+        listarNiveis(),
+      ]);
+
+      setAlunos(dadosAlunos);
+      setTurmas(dadosTurmas);
+      setAlunosTurmas(dadosAlunosTurmas);
+      setPerfis(dadosPerfis);
+      setInstrumentos(dadosInstrumentos);
+      setNiveis(dadosNiveis);
+
+      const classes =
+        dadosTurmas.filter(
+          (turma) =>
+            turma.tipo_turma === "Conjunto",
+        );
+
+      setClasseSelecionadaId(
+        (classeAtual) => {
+          const aindaExiste =
+            classes.some(
+              (classe) =>
+                classe.id === classeAtual,
+            );
+
+          if (aindaExiste) {
+            return classeAtual;
+          }
+
+          return classes[0]?.id ?? "";
+        },
+      );
+    } catch (error) {
+      setErro(
+        obterMensagemErro(
+          error,
+          "Não foi possível carregar as classes de conjunto.",
+        ),
+      );
+    } finally {
+      setACarregar(false);
+    }
+  }
+
+  useEffect(() => {
+    carregarDados();
+  }, []);
+
+  const classesConjunto = useMemo(
     () =>
-      grupos.find(
-        (grupo) =>
-          grupo.id === grupoSelecionadoId,
+      turmas
+        .filter(
+          (turma) =>
+            turma.tipo_turma === "Conjunto",
+        )
+        .sort((a, b) =>
+          a.nome.localeCompare(b.nome),
+        ),
+    [turmas],
+  );
+
+  const turmasPrincipais = useMemo(
+    () =>
+      turmas.filter(
+        (turma) =>
+          turma.tipo_turma === "Principal",
+      ),
+    [turmas],
+  );
+
+  const classeSelecionada = useMemo(
+    () =>
+      classesConjunto.find(
+        (classe) =>
+          classe.id ===
+          classeSelecionadaId,
       ) ?? null,
     [
-      grupos,
-      grupoSelecionadoId,
+      classesConjunto,
+      classeSelecionadaId,
     ],
   );
 
-  async function carregarGrupos() {
-    try {
-      setACarregar(true);
-      setErro("");
-
-      const dados =
-        await listarGruposAutomaticos();
-
-      setGrupos(dados);
-
-      setGrupoSelecionadoId(
-        (grupoAtual) => {
-          const grupoAindaExiste =
-            dados.some(
-              (grupo) =>
-                grupo.id === grupoAtual,
-            );
-
-          if (grupoAindaExiste) {
-            return grupoAtual;
-          }
-
-          return dados[0]?.id ?? "";
-        },
-      );
-
-      return dados;
-    } catch (error) {
-      setErro(
-        obterMensagemErro(
-          error,
-          "Não foi possível carregar os grupos automáticos.",
-        ),
-      );
-
-      return [];
-    } finally {
-      setACarregar(false);
-    }
-  }
-
-  async function carregarAlunos(
-    grupo: GrupoAutomatico,
-  ) {
-    try {
-      setACarregar(true);
-      setErro("");
-
-      const dados =
-        await obterAlunosDoGrupoAutomatico(
-          grupo,
-        );
-
-      setAlunos(dados);
-      setNivelMinimo(
-        grupo.nivel_minimo_ordem,
-      );
-      setNivelMaximo(
-        grupo.nivel_maximo_ordem,
-      );
-      setAtivo(grupo.ativo);
-    } catch (error) {
-      setErro(
-        obterMensagemErro(
-          error,
-          "Não foi possível carregar os participantes.",
-        ),
-      );
-    } finally {
-      setACarregar(false);
-    }
-  }
-
-  useEffect(() => {
-    carregarGrupos();
-  }, []);
-
-  useEffect(() => {
-    if (grupoSelecionado) {
-      carregarAlunos(
-        grupoSelecionado,
-      );
-    }
-  }, [grupoSelecionado]);
-
-  async function guardarConfiguracao() {
-    if (!grupoSelecionado) {
-      return;
-    }
-
-    if (nivelMaximo < nivelMinimo) {
-      setErro(
-        "O nível máximo não pode ser inferior ao nível mínimo.",
-      );
-
-      return;
-    }
-
-    try {
-      setAGuardar(true);
-      setErro("");
-      setSucesso("");
-
-      await atualizarGrupoAutomatico(
-        grupoSelecionado.id,
-        {
-          nivelMinimoOrdem:
-            nivelMinimo,
-          nivelMaximoOrdem:
-            nivelMaximo,
-          ativo,
-        },
-      );
-
-      const gruposAtualizados =
-        await carregarGrupos();
-
-      const grupoAtualizado =
-        gruposAtualizados.find(
-          (grupo) =>
-            grupo.id ===
-            grupoSelecionado.id,
-        );
-
-      if (!grupoAtualizado) {
-        throw new Error(
-          "Não foi possível encontrar o grupo atualizado.",
-        );
-      }
-
-      await carregarAlunos(
-        grupoAtualizado,
-      );
-
-      const resultado =
-        await sincronizarHorariosDoGrupoAutomatico(
-          grupoAtualizado,
-        );
-
-      setSucesso(
-        resultado.totalHorarios === 0
-          ? "Configuração guardada. Ainda não existem horários ligados a este grupo."
-          : `Configuração guardada e ${resultado.totalHorarios} horário${
-              resultado.totalHorarios === 1
-                ? ""
-                : "s"
-            } sincronizado${
-              resultado.totalHorarios === 1
-                ? ""
-                : "s"
-            } com ${resultado.totalParticipantes} participante${
-              resultado.totalParticipantes === 1
-                ? ""
-                : "s"
-            }.`,
-      );
-    } catch (error) {
-      setErro(
-        obterMensagemErro(
-          error,
-          "Não foi possível guardar e sincronizar o grupo.",
-        ),
-      );
-    } finally {
-      setAGuardar(false);
-    }
-  }
-
-  async function alterarExcecao(
-    aluno: AlunoGrupoAutomatico,
-    tipo: TipoExcecaoGrupo | null,
-  ) {
-    if (!grupoSelecionado) {
-      return;
-    }
-
-    try {
-      setErro("");
-      setSucesso("");
-
-      await definirExcecaoGrupo(
-        grupoSelecionado.id,
-        aluno.aluno.id,
-        tipo,
-      );
-
-      await carregarAlunos(
-        grupoSelecionado,
-      );
-
-      const resultado =
-        await sincronizarHorariosDoGrupoAutomatico(
-          grupoSelecionado,
-        );
-
-      setSucesso(
-        resultado.totalHorarios === 0
-          ? "Participação atualizada."
-          : `Participação atualizada em ${resultado.totalHorarios} horário${
-              resultado.totalHorarios === 1
-                ? ""
-                : "s"
-            }.`,
-      );
-    } catch (error) {
-      setErro(
-        obterMensagemErro(
-          error,
-          "Não foi possível alterar a participação do aluno.",
-        ),
-      );
-    }
-  }
-
-  async function sincronizarGrupoAtual() {
-    if (!grupoSelecionado) {
-      return;
-    }
-
-    try {
-      setASincronizar(true);
-      setErro("");
-      setSucesso("");
-
-      const resultado =
-        await sincronizarHorariosDoGrupoAutomatico(
-          grupoSelecionado,
-        );
-
-      await carregarAlunos(
-        grupoSelecionado,
-      );
-
-      setSucesso(
-        resultado.totalHorarios === 0
-          ? "Não existem horários ligados a este grupo."
-          : `${resultado.totalHorarios} horário${
-              resultado.totalHorarios === 1
-                ? ""
-                : "s"
-            } sincronizado${
-              resultado.totalHorarios === 1
-                ? ""
-                : "s"
-            } com ${resultado.totalParticipantes} participante${
-              resultado.totalParticipantes === 1
-                ? ""
-                : "s"
-            }.`,
-      );
-    } catch (error) {
-      setErro(
-        obterMensagemErro(
-          error,
-          "Não foi possível sincronizar o grupo.",
-        ),
-      );
-    } finally {
-      setASincronizar(false);
-    }
-  }
-
-  async function sincronizarTudo() {
-    try {
-      setASincronizar(true);
-      setErro("");
-      setSucesso("");
-
-      const gruposAtualizados =
-        await listarGruposAutomaticos();
-
-      const resultado =
-        await sincronizarTodosOsGruposAutomaticos(
-          gruposAtualizados,
-        );
-
-      if (grupoSelecionado) {
-        await carregarAlunos(
-          grupoSelecionado,
-        );
-      }
-
-      setSucesso(
-        resultado.totalHorarios === 0
-          ? "Não existem horários de grupos automáticos para sincronizar."
-          : `${resultado.totalHorarios} horário${
-              resultado.totalHorarios === 1
-                ? ""
-                : "s"
-            } sincronizado${
-              resultado.totalHorarios === 1
-                ? ""
-                : "s"
-            }.`,
-      );
-    } catch (error) {
-      setErro(
-        obterMensagemErro(
-          error,
-          "Não foi possível sincronizar os grupos automáticos.",
-        ),
-      );
-    } finally {
-      setASincronizar(false);
-    }
-  }
-
-  const alunosFiltrados = useMemo(() => {
-    const termo = pesquisa
-      .trim()
-      .toLowerCase();
-
-    if (!termo) {
-      return alunos;
-    }
-
-    return alunos.filter((item) =>
-      [
-        item.aluno.nome,
-        item.nivel?.nome ?? "",
-      ].some((valor) =>
-        valor
-          .toLowerCase()
-          .includes(termo),
-      ),
+  function obterPerfil(
+    alunoId: string,
+  ): AlunoPerfil | null {
+    return (
+      perfis.find(
+        (perfil) =>
+          perfil.aluno_id === alunoId,
+      ) ?? null
     );
-  }, [alunos, pesquisa]);
+  }
 
-  const participantes = alunos.filter(
-    (item) => item.participa,
-  ).length;
+  function obterTurmaPrincipal(
+    alunoId: string,
+  ): Turma | null {
+    const idsTurmasDoAluno =
+      alunosTurmas
+        .filter(
+          (registo) =>
+            registo.aluno_id === alunoId,
+        )
+        .map(
+          (registo) =>
+            registo.turma_id,
+        );
 
-  const automaticos = alunos.filter(
-    (item) =>
-      item.incluidoAutomaticamente &&
-      !item.excecao,
-  ).length;
+    return (
+      turmasPrincipais.find(
+        (turma) =>
+          idsTurmasDoAluno.includes(
+            turma.id,
+          ),
+      ) ?? null
+    );
+  }
 
-  const inclusoes = alunos.filter(
-    (item) =>
-      item.excecao === "Incluir",
-  ).length;
+  function obterInstrumento(
+    alunoId: string,
+  ): Instrumento | null {
+    const perfil =
+      obterPerfil(alunoId);
 
-  const exclusoes = alunos.filter(
-    (item) =>
-      item.excecao === "Excluir",
-  ).length;
+    if (!perfil?.instrumento_id) {
+      return null;
+    }
+
+    return (
+      instrumentos.find(
+        (instrumento) =>
+          instrumento.id ===
+          perfil.instrumento_id,
+      ) ?? null
+    );
+  }
+
+  function obterNivel(
+    alunoId: string,
+  ): Nivel | null {
+    const perfil =
+      obterPerfil(alunoId);
+
+    if (!perfil?.nivel_id) {
+      return null;
+    }
+
+    return (
+      niveis.find(
+        (nivel) =>
+          nivel.id === perfil.nivel_id,
+      ) ?? null
+    );
+  }
+
+  const alunosDaClasse = useMemo<
+    AlunoClasseConjunto[]
+  >(() => {
+    if (!classeSelecionada) {
+      return [];
+    }
+
+    const alunoIds =
+      alunosTurmas
+        .filter(
+          (registo) =>
+            registo.turma_id ===
+            classeSelecionada.id,
+        )
+        .map(
+          (registo) =>
+            registo.aluno_id,
+        );
+
+    return alunos
+      .filter(
+        (aluno) =>
+          alunoIds.includes(aluno.id),
+      )
+      .map((aluno) => ({
+        aluno,
+        turmaPrincipal:
+          obterTurmaPrincipal(
+            aluno.id,
+          ),
+        instrumento:
+          obterInstrumento(
+            aluno.id,
+          ),
+        nivel:
+          obterNivel(
+            aluno.id,
+          ),
+      }))
+      .sort((a, b) =>
+        a.aluno.nome.localeCompare(
+          b.aluno.nome,
+        ),
+      );
+  }, [
+    alunos,
+    alunosTurmas,
+    classeSelecionada,
+    perfis,
+    instrumentos,
+    niveis,
+    turmasPrincipais,
+  ]);
+
+  const alunosFiltrados = useMemo(
+    () => {
+      const termo =
+        pesquisa
+          .trim()
+          .toLowerCase();
+
+      if (!termo) {
+        return alunosDaClasse;
+      }
+
+      return alunosDaClasse.filter(
+        (item) =>
+          [
+            item.aluno.nome,
+            item.turmaPrincipal?.nome ??
+              "",
+            item.instrumento?.nome ??
+              "",
+            item.nivel?.nome ?? "",
+          ].some((valor) =>
+            valor
+              .toLowerCase()
+              .includes(termo),
+          ),
+      );
+    },
+    [
+      alunosDaClasse,
+      pesquisa,
+    ],
+  );
+
+  function contarAlunosDaClasse(
+    classeId: string,
+  ): number {
+    return alunosTurmas.filter(
+      (registo) =>
+        registo.turma_id === classeId,
+    ).length;
+  }
 
   return (
     <main className="page">
       <PageHeader
         title="Grupos automáticos"
-        description="Gerir participantes e sincronizar automaticamente os horários."
+        description="Consultar automaticamente os alunos das classes de conjunto."
       />
 
       {erro && (
@@ -444,250 +354,211 @@ function GruposAutomaticos() {
         </div>
       )}
 
-      {sucesso && (
-        <div className="alert alert--success">
-          {sucesso}
-        </div>
-      )}
+      <section
+        style={{
+          display: "flex",
+          justifyContent:
+            "space-between",
+          alignItems: "center",
+          gap: "12px",
+          flexWrap: "wrap",
+          marginBottom: "20px",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            gap: "8px",
+            flexWrap: "wrap",
+          }}
+        >
+          {classesConjunto.map(
+            (classe) => {
+              const selecionada =
+                classe.id ===
+                classeSelecionadaId;
 
-      <section className="automatic-groups-toolbar">
-        <div className="automatic-groups-tabs">
-          {grupos.map((grupo) => (
-            <button
-              key={grupo.id}
-              type="button"
-              className={
-                grupo.id ===
-                grupoSelecionadoId
-                  ? "automatic-group-tab automatic-group-tab--active"
-                  : "automatic-group-tab"
-              }
-              onClick={() => {
-                setGrupoSelecionadoId(
-                  grupo.id,
-                );
+              return (
+                <button
+                  key={classe.id}
+                  type="button"
+                  className={
+                    selecionada
+                      ? "button button--primary"
+                      : "button button--secondary"
+                  }
+                  onClick={() => {
+                    setClasseSelecionadaId(
+                      classe.id,
+                    );
 
-                setPesquisa("");
-                setErro("");
-                setSucesso("");
-              }}
-            >
-              <UsersRound size={19} />
+                    setPesquisa("");
+                  }}
+                >
+                  <UsersRound
+                    size={18}
+                  />
 
-              <span>{grupo.nome}</span>
-            </button>
-          ))}
+                  {classe.nome}
+
+                  <span>
+                    (
+                    {contarAlunosDaClasse(
+                      classe.id,
+                    )}
+                    )
+                  </span>
+                </button>
+              );
+            },
+          )}
         </div>
 
         <button
           className="button button--secondary"
           type="button"
-          disabled={
-            aSincronizar ||
-            grupos.length === 0
-          }
-          onClick={sincronizarTudo}
+          onClick={carregarDados}
+          disabled={aCarregar}
         >
           <RefreshCw size={18} />
 
-          {aSincronizar
-            ? "A sincronizar..."
-            : "Sincronizar todos"}
+          {aCarregar
+            ? "A atualizar..."
+            : "Atualizar"}
         </button>
       </section>
 
-      {!grupoSelecionado ? (
+      {aCarregar ? (
         <section className="panel">
           <p className="muted-text">
-            Ainda não existem grupos automáticos configurados.
+            A carregar classes de
+            conjunto...
+          </p>
+        </section>
+      ) : classesConjunto.length ===
+        0 ? (
+        <section className="panel">
+          <p className="muted-text">
+            Ainda não existem classes
+            de conjunto.
+          </p>
+
+          <p className="muted-text">
+            Crie uma em Turmas,
+            escolhendo o tipo
+            "Classe de conjunto".
+          </p>
+        </section>
+      ) : !classeSelecionada ? (
+        <section className="panel">
+          <p className="muted-text">
+            Selecione uma classe de
+            conjunto.
           </p>
         </section>
       ) : (
         <>
-          <section className="automatic-groups-summary">
-            <article>
-              <span>Participantes</span>
-              <strong>{participantes}</strong>
+          <section
+            style={{
+              display: "grid",
+              gridTemplateColumns:
+                "repeat(auto-fit, minmax(180px, 1fr))",
+              gap: "14px",
+              marginBottom: "20px",
+            }}
+          >
+            <article className="panel">
+              <span className="muted-text">
+                Classe de conjunto
+              </span>
+
+              <h2
+                style={{
+                  marginBottom: 0,
+                }}
+              >
+                {classeSelecionada.nome}
+              </h2>
             </article>
 
-            <article>
-              <span>Automáticos</span>
-              <strong>{automaticos}</strong>
+            <article className="panel">
+              <span className="muted-text">
+                Alunos
+              </span>
+
+              <h2
+                style={{
+                  marginBottom: 0,
+                }}
+              >
+                {alunosDaClasse.length}
+              </h2>
             </article>
 
-            <article>
-              <span>Inclusões</span>
-              <strong>{inclusoes}</strong>
-            </article>
+            <article className="panel">
+              <span className="muted-text">
+                Ano letivo
+              </span>
 
-            <article>
-              <span>Exclusões</span>
-              <strong>{exclusoes}</strong>
+              <h2
+                style={{
+                  marginBottom: 0,
+                }}
+              >
+                {
+                  classeSelecionada.ano_letivo
+                }
+              </h2>
             </article>
           </section>
 
-          <section className="automatic-groups-layout">
-            <article className="panel">
-              <h2>
-                <Settings2 size={21} />
-                Configuração
-              </h2>
-
-              <div className="form">
-                <div className="form-field">
-                  <label htmlFor="nivel-minimo">
-                    Nível mínimo
-                  </label>
-
-                  <select
-                    id="nivel-minimo"
-                    value={nivelMinimo}
-                    onChange={(event) =>
-                      setNivelMinimo(
-                        Number(
-                          event.target.value,
-                        ),
-                      )
-                    }
-                  >
-                    <option value={0}>
-                      Nível Minion
-                    </option>
-
-                    {Array.from(
-                      { length: 8 },
-                      (_, indice) =>
-                        indice + 1,
-                    ).map((numero) => (
-                      <option
-                        key={numero}
-                        value={numero}
-                      >
-                        Nível {numero}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="form-field">
-                  <label htmlFor="nivel-maximo">
-                    Nível máximo
-                  </label>
-
-                  <select
-                    id="nivel-maximo"
-                    value={nivelMaximo}
-                    onChange={(event) =>
-                      setNivelMaximo(
-                        Number(
-                          event.target.value,
-                        ),
-                      )
-                    }
-                  >
-                    <option value={0}>
-                      Nível Minion
-                    </option>
-
-                    {Array.from(
-                      { length: 8 },
-                      (_, indice) =>
-                        indice + 1,
-                    ).map((numero) => (
-                      <option
-                        key={numero}
-                        value={numero}
-                      >
-                        Nível {numero}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <label className="user-active-field">
-                  <input
-                    type="checkbox"
-                    checked={ativo}
-                    onChange={(event) =>
-                      setAtivo(
-                        event.target.checked,
-                      )
-                    }
-                  />
-
-                  <span>Grupo ativo</span>
-                </label>
-
-                <button
-                  type="button"
-                  className="button button--primary"
-                  disabled={
-                    aGuardar ||
-                    aSincronizar
-                  }
-                  onClick={
-                    guardarConfiguracao
-                  }
+          <section className="panel">
+            <div
+              style={{
+                display: "flex",
+                justifyContent:
+                  "space-between",
+                alignItems: "flex-end",
+                gap: "16px",
+                flexWrap: "wrap",
+                marginBottom: "18px",
+              }}
+            >
+              <div>
+                <h2
+                  style={{
+                    marginBottom: "4px",
+                  }}
                 >
-                  <Save size={18} />
+                  Participantes
+                </h2>
 
-                  {aGuardar
-                    ? "A guardar..."
-                    : "Guardar e sincronizar"}
-                </button>
-
-                <button
-                  type="button"
-                  className="button button--secondary"
-                  disabled={
-                    aGuardar ||
-                    aSincronizar
-                  }
-                  onClick={
-                    sincronizarGrupoAtual
-                  }
+                <p
+                  className="muted-text"
+                  style={{
+                    margin: 0,
+                  }}
                 >
-                  <RefreshCw size={18} />
-
-                  {aSincronizar
-                    ? "A sincronizar..."
-                    : "Sincronizar este grupo"}
-                </button>
+                  Os alunos são
+                  atualizados
+                  automaticamente através
+                  do perfil académico.
+                </p>
               </div>
-            </article>
 
-            <article className="panel">
-              <header className="automatic-participants-header">
-                <div>
-                  <h2>Participantes</h2>
-
-                  <p>
-                    Qualquer alteração é aplicada aos horários deste grupo.
-                  </p>
-                </div>
-
-                <button
-                  className="button button--secondary"
-                  type="button"
-                  disabled={aCarregar}
-                  onClick={() =>
-                    carregarAlunos(
-                      grupoSelecionado,
-                    )
-                  }
-                >
-                  <RefreshCw size={18} />
-                  Atualizar lista
-                </button>
-              </header>
-
-              <div className="form-field">
-                <label htmlFor="pesquisa-aluno">
+              <div
+                className="form-field"
+                style={{
+                  marginBottom: 0,
+                  minWidth: "260px",
+                }}
+              >
+                <label htmlFor="pesquisa-participante">
                   Procurar aluno
                 </label>
 
                 <input
-                  id="pesquisa-aluno"
+                  id="pesquisa-participante"
                   type="search"
                   value={pesquisa}
                   onChange={(event) =>
@@ -695,131 +566,79 @@ function GruposAutomaticos() {
                       event.target.value,
                     )
                   }
-                  placeholder="Nome ou nível..."
+                  placeholder="Nome, turma, instrumento ou nível..."
                 />
               </div>
+            </div>
 
-              {aCarregar ? (
-                <p className="muted-text">
-                  A carregar participantes...
-                </p>
-              ) : alunosFiltrados.length ===
-                0 ? (
-                <p className="muted-text">
-                  Não foram encontrados alunos.
-                </p>
-              ) : (
-                <div className="automatic-participants-list">
-                  {alunosFiltrados.map(
-                    (item) => (
-                      <div
-                        className={
-                          item.participa
-                            ? "automatic-participant automatic-participant--active"
-                            : "automatic-participant"
-                        }
-                        key={item.aluno.id}
-                      >
-                        <div className="automatic-participant__state">
-                          {item.participa ? (
-                            <Check size={18} />
-                          ) : (
-                            <X size={18} />
-                          )}
-                        </div>
+            {alunosDaClasse.length ===
+            0 ? (
+              <p className="muted-text">
+                Ainda não existem alunos
+                nesta classe de conjunto.
+              </p>
+            ) : alunosFiltrados.length ===
+              0 ? (
+              <p className="muted-text">
+                Não foram encontrados
+                alunos com essa pesquisa.
+              </p>
+            ) : (
+              <div className="table-wrapper">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Aluno</th>
+                      <th>
+                        Turma principal
+                      </th>
+                      <th>
+                        Instrumento
+                      </th>
+                      <th>Nível</th>
+                    </tr>
+                  </thead>
 
-                        <div className="automatic-participant__identity">
-                          <strong>
-                            {item.aluno.nome}
-                          </strong>
-
-                          <span>
-                            {item.nivel?.nome ??
-                              "Sem nível"}
-                          </span>
-                        </div>
-
-                        <div className="automatic-participant__origin">
-                          {item.excecao ===
-                          "Incluir" ? (
-                            <span className="participant-origin participant-origin--include">
-                              Incluído manualmente
-                            </span>
-                          ) : item.excecao ===
-                            "Excluir" ? (
-                            <span className="participant-origin participant-origin--exclude">
-                              Excluído manualmente
-                            </span>
-                          ) : item.incluidoAutomaticamente ? (
-                            <span className="participant-origin">
-                              Incluído pelo nível
-                            </span>
-                          ) : (
-                            <span className="participant-origin participant-origin--outside">
-                              Fora dos níveis
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="automatic-participant__actions">
-                          {item.participa ? (
-                            <button
-                              type="button"
-                              className="icon-button icon-button--danger"
-                              title="Excluir do grupo"
-                              onClick={() =>
-                                alterarExcecao(
-                                  item,
-                                  "Excluir",
-                                )
+                  <tbody>
+                    {alunosFiltrados.map(
+                      (item) => (
+                        <tr
+                          key={
+                            item.aluno.id
+                          }
+                        >
+                          <td>
+                            <strong>
+                              {
+                                item.aluno
+                                  .nome
                               }
-                            >
-                              <UserMinus
-                                size={18}
-                              />
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              className="icon-button"
-                              title="Incluir no grupo"
-                              onClick={() =>
-                                alterarExcecao(
-                                  item,
-                                  "Incluir",
-                                )
-                              }
-                            >
-                              <UserPlus
-                                size={18}
-                              />
-                            </button>
-                          )}
+                            </strong>
+                          </td>
 
-                          {item.excecao && (
-                            <button
-                              type="button"
-                              className="icon-button"
-                              title="Remover exceção"
-                              onClick={() =>
-                                alterarExcecao(
-                                  item,
-                                  null,
-                                )
-                              }
-                            >
-                              <RefreshCw
-                                size={18}
-                              />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ),
-                  )}
-                </div>
-              )}
-            </article>
+                          <td>
+                            {item
+                              .turmaPrincipal
+                              ?.nome ?? "—"}
+                          </td>
+
+                          <td>
+                            {item
+                              .instrumento
+                              ?.nome ?? "—"}
+                          </td>
+
+                          <td>
+                            {item.nivel
+                              ?.nome ?? "—"}
+                          </td>
+                        </tr>
+                      ),
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </section>
         </>
       )}
