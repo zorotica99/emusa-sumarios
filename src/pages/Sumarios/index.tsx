@@ -24,6 +24,10 @@ import {
   type Aluno,
 } from "../../services/alunos.service";
 import {
+  listarAlunosTurmas,
+  type AlunoTurma,
+} from "../../services/alunosTurmas.service";
+import {
   listarDisciplinas,
   type Disciplina,
 } from "../../services/disciplinas.service";
@@ -134,6 +138,9 @@ function Sumarios() {
     HorarioAluno[]
   >([]);
   const [alunos, setAlunos] = useState<Aluno[]>([]);
+  const [alunosTurmas, setAlunosTurmas] = useState<
+    AlunoTurma[]
+  >([]);
   const [professores, setProfessores] = useState<
     Professor[]
   >([]);
@@ -178,6 +185,7 @@ function Sumarios() {
         dadosHorarios,
         dadosHorariosAlunos,
         dadosAlunos,
+        dadosAlunosTurmas,
         dadosProfessores,
         dadosTurmas,
         dadosDisciplinas,
@@ -186,6 +194,7 @@ function Sumarios() {
         listarHorarios(),
         listarHorariosAlunos(),
         listarAlunos(),
+        listarAlunosTurmas(),
         listarProfessores(),
         listarTurmas(),
         listarDisciplinas(),
@@ -195,6 +204,7 @@ function Sumarios() {
       setHorarios(dadosHorarios);
       setHorariosAlunos(dadosHorariosAlunos);
       setAlunos(dadosAlunos);
+      setAlunosTurmas(dadosAlunosTurmas);
       setProfessores(dadosProfessores);
       setTurmas(dadosTurmas);
       setDisciplinas(dadosDisciplinas);
@@ -289,22 +299,39 @@ function Sumarios() {
       return [];
     }
 
-    const ids = horariosAlunos
+    // Nas aulas de turma, os participantes são sempre os alunos
+    // que pertencem atualmente à turma. Assim, quando um aluno
+    // entra na turma, aparece automaticamente nos sumários sem
+    // ser necessário editar novamente o horário.
+    if (horarioSelecionado.tipo_aula === "Turma") {
+      const idsDaTurma = alunosTurmas
+        .filter(
+          (registo) =>
+            registo.turma_id === horarioSelecionado.turma_id,
+        )
+        .map((registo) => registo.aluno_id);
+
+      return alunos
+        .filter((aluno) => idsDaTurma.includes(aluno.id))
+        .sort((a, b) => a.nome.localeCompare(b.nome));
+    }
+
+    // Nas aulas individuais e de grupo, mantemos exatamente
+    // os alunos escolhidos especificamente para esse horário.
+    const idsDoHorario = horariosAlunos
       .filter(
         (registo) =>
-          registo.horario_id ===
-          horarioSelecionado.id,
+          registo.horario_id === horarioSelecionado.id,
       )
       .map((registo) => registo.aluno_id);
 
     return alunos
-      .filter((aluno) => ids.includes(aluno.id))
-      .sort((a, b) =>
-        a.nome.localeCompare(b.nome),
-      );
+      .filter((aluno) => idsDoHorario.includes(aluno.id))
+      .sort((a, b) => a.nome.localeCompare(b.nome));
   }, [
     horarioSelecionado,
     horariosAlunos,
+    alunosTurmas,
     alunos,
   ]);
 
