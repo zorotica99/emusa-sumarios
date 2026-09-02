@@ -390,6 +390,46 @@ function Sumarios() {
     [horariosDoProfessor, formulario.horarioId],
   );
 
+  const aulaAindaNaoDisponivel = useMemo(() => {
+    if (
+      eAdministrador ||
+      !formulario.data ||
+      !horarioSelecionado ||
+      sumarioEmEdicao
+    ) {
+      return false;
+    }
+
+    return !professorPodeRegistarAula(
+      formulario.data,
+      horarioSelecionado,
+    );
+  }, [
+    eAdministrador,
+    formulario.data,
+    horarioSelecionado,
+    sumarioEmEdicao,
+    instanteAtual,
+  ]);
+
+  const mensagemAulaAindaNaoDisponivel = useMemo(() => {
+    if (
+      !aulaAindaNaoDisponivel ||
+      !horarioSelecionado ||
+      !formulario.data
+    ) {
+      return "";
+    }
+
+    return `Este sumário poderá ser preenchido a partir de ${formatarData(
+      formulario.data,
+    )} às ${horarioSelecionado.hora_inicio.slice(0, 5)}, quando a aula começar.`;
+  }, [
+    aulaAindaNaoDisponivel,
+    horarioSelecionado,
+    formulario.data,
+  ]);
+
   const alunosDoHorario = useMemo(() => {
     if (!horarioSelecionado) {
       return [];
@@ -775,7 +815,9 @@ function Sumarios() {
       )
     ) {
       setErro(
-        `Este sumário só pode ser registado a partir das ${horarioSelecionado.hora_inicio.slice(0, 5)}, quando a aula começar.`,
+        `Este sumário poderá ser preenchido a partir de ${formatarData(
+          formulario.data,
+        )} às ${horarioSelecionado.hora_inicio.slice(0, 5)}, quando a aula começar.`,
       );
       return;
     }
@@ -831,12 +873,27 @@ function Sumarios() {
           : "Sumário e presenças guardados com sucesso.",
       );
     } catch (error) {
-      setErro(
-        obterMensagemErro(
-          error,
-          "Não foi possível guardar o sumário.",
-        ),
+      const mensagem = obterMensagemErro(
+        error,
+        "Não foi possível guardar o sumário.",
       );
+
+      if (
+        !eAdministrador &&
+        horarioSelecionado &&
+        !professorPodeRegistarAula(
+          formulario.data,
+          horarioSelecionado,
+        )
+      ) {
+        setErro(
+          `Este sumário poderá ser preenchido a partir de ${formatarData(
+            formulario.data,
+          )} às ${horarioSelecionado.hora_inicio.slice(0, 5)}, quando a aula começar.`,
+        );
+      } else {
+        setErro(mensagem);
+      }
     } finally {
       setAGuardar(false);
     }
@@ -1007,6 +1064,13 @@ function Sumarios() {
               onChange={alterarHorario}
             />
 
+            {aulaAindaNaoDisponivel && (
+              <div className="summary-date-info">
+                <Clock3 size={18} />
+                <span>{mensagemAulaAindaNaoDisponivel}</span>
+              </div>
+            )}
+
             {horarioSelecionado && (
               <section className="summary-lesson-info">
                 <span>
@@ -1087,7 +1151,10 @@ function Sumarios() {
               <textarea
                 id="sumario-conteudo"
                 value={formulario.conteudo}
-                readOnly={sumarioBloqueadoParaProfessor}
+                readOnly={
+                  sumarioBloqueadoParaProfessor ||
+                  aulaAindaNaoDisponivel
+                }
                 onChange={(event) => {
                   setFormulario((atual) => ({
                     ...atual,
@@ -1137,7 +1204,10 @@ function Sumarios() {
                   <div className="attendance-quick-actions">
                     <button
                       type="button"
-                      disabled={sumarioBloqueadoParaProfessor}
+                      disabled={
+                        sumarioBloqueadoParaProfessor ||
+                        aulaAindaNaoDisponivel
+                      }
                       onClick={() =>
                         marcarTodos("Presente")
                       }
@@ -1147,7 +1217,10 @@ function Sumarios() {
 
                     <button
                       type="button"
-                      disabled={sumarioBloqueadoParaProfessor}
+                      disabled={
+                        sumarioBloqueadoParaProfessor ||
+                        aulaAindaNaoDisponivel
+                      }
                       onClick={() =>
                         marcarTodos("Falta")
                       }
@@ -1168,7 +1241,10 @@ function Sumarios() {
                           </strong>
 
                           <select
-                            disabled={sumarioBloqueadoParaProfessor}
+                            disabled={
+                              sumarioBloqueadoParaProfessor ||
+                              aulaAindaNaoDisponivel
+                            }
                             value={
                               estadosPresenca[
                                 aluno.id
@@ -1212,7 +1288,8 @@ function Sumarios() {
             )}
 
             <div className="form-actions">
-              {!sumarioBloqueadoParaProfessor && (
+              {!sumarioBloqueadoParaProfessor &&
+                !aulaAindaNaoDisponivel && (
                 <button
                   className="button button--primary"
                   type="submit"
