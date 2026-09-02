@@ -1,6 +1,7 @@
 import {
   Pencil,
   Plus,
+  Search,
   Trash2,
   UserRoundCog,
 } from "lucide-react";
@@ -108,6 +109,12 @@ function Alunos() {
 
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState("");
+
+  const [pesquisa, setPesquisa] = useState("");
+  const [filtroTurma, setFiltroTurma] = useState("");
+  const [filtroClasseConjunto, setFiltroClasseConjunto] = useState("");
+  const [filtroInstrumento, setFiltroInstrumento] = useState("");
+  const [filtroNivel, setFiltroNivel] = useState("");
 
   async function carregarDados() {
     try {
@@ -522,6 +529,51 @@ function Alunos() {
       }),
     );
 
+  const alunosFiltrados = alunos.filter((aluno) => {
+    const termo = pesquisa.trim().toLocaleLowerCase("pt-PT");
+    const turmaId = obterTurmaPrincipalIdDoAluno(aluno.id);
+    const classeId = obterClasseConjuntoIdDoAluno(aluno.id);
+    const perfil = obterPerfilDoAluno(aluno.id);
+
+    if (filtroTurma && turmaId !== filtroTurma) return false;
+    if (filtroClasseConjunto && classeId !== filtroClasseConjunto) return false;
+    if (
+      filtroInstrumento &&
+      perfil?.instrumento_id !== filtroInstrumento
+    ) return false;
+    if (filtroNivel && perfil?.nivel_id !== filtroNivel) return false;
+
+    if (!termo) return true;
+
+    return [
+      aluno.nome,
+      obterNomeTurmaPrincipal(aluno.id),
+      obterNomeClasseConjunto(aluno.id),
+      obterNomeInstrumento(aluno.id),
+      obterNomeNivel(aluno.id),
+      aluno.encarregado ?? "",
+      aluno.contacto ?? "",
+    ]
+      .join(" ")
+      .toLocaleLowerCase("pt-PT")
+      .includes(termo);
+  });
+
+  const existemFiltros =
+    Boolean(pesquisa.trim()) ||
+    Boolean(filtroTurma) ||
+    Boolean(filtroClasseConjunto) ||
+    Boolean(filtroInstrumento) ||
+    Boolean(filtroNivel);
+
+  function limparFiltros() {
+    setPesquisa("");
+    setFiltroTurma("");
+    setFiltroClasseConjunto("");
+    setFiltroInstrumento("");
+    setFiltroNivel("");
+  }
+
   return (
     <main className="page">
       <PageHeader
@@ -775,6 +827,105 @@ function Alunos() {
         <div className="panel">
           <h2>Lista de alunos</h2>
 
+          {!aCarregar && alunos.length > 0 && (
+            <>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                  gap: "12px",
+                  marginBottom: "12px",
+                }}
+              >
+                <div className="form-field">
+                  <label htmlFor="pesquisa-alunos">Procurar aluno</label>
+                  <div style={{ position: "relative" }}>
+                    <Search
+                      size={17}
+                      style={{
+                        position: "absolute",
+                        left: "12px",
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        pointerEvents: "none",
+                      }}
+                    />
+                    <input
+                      id="pesquisa-alunos"
+                      type="text"
+                      value={pesquisa}
+                      onChange={(event) => setPesquisa(event.target.value)}
+                      placeholder="Nome, turma, instrumento..."
+                      style={{ width: "100%", paddingLeft: "38px" }}
+                    />
+                  </div>
+                </div>
+
+                <SelectField
+                  id="filtro-turma-alunos"
+                  label="Turma"
+                  value={filtroTurma}
+                  options={opcoesTurmasPrincipais}
+                  placeholder="Todas as turmas"
+                  onChange={setFiltroTurma}
+                />
+
+                <SelectField
+                  id="filtro-classe-alunos"
+                  label="Classe de conjunto"
+                  value={filtroClasseConjunto}
+                  options={opcoesClassesConjunto}
+                  placeholder="Todas as classes"
+                  onChange={setFiltroClasseConjunto}
+                />
+
+                <SelectField
+                  id="filtro-instrumento-alunos"
+                  label="Instrumento"
+                  value={filtroInstrumento}
+                  options={opcoesInstrumentos}
+                  placeholder="Todos os instrumentos"
+                  onChange={setFiltroInstrumento}
+                />
+
+                <SelectField
+                  id="filtro-nivel-alunos"
+                  label="Nível"
+                  value={filtroNivel}
+                  options={opcoesNiveis}
+                  placeholder="Todos os níveis"
+                  onChange={setFiltroNivel}
+                />
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: "12px",
+                  flexWrap: "wrap",
+                  marginBottom: "16px",
+                }}
+              >
+                <span className="muted-text">
+                  {alunosFiltrados.length} {alunosFiltrados.length === 1 ? "aluno" : "alunos"}
+                  {existemFiltros ? ` de ${alunos.length}` : ""}
+                </span>
+
+                {existemFiltros && (
+                  <button
+                    className="button button--secondary"
+                    type="button"
+                    onClick={limparFiltros}
+                  >
+                    Limpar filtros
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+
           {aCarregar ? (
             <p className="muted-text">
               A carregar...
@@ -782,6 +933,10 @@ function Alunos() {
           ) : alunos.length === 0 ? (
             <p className="muted-text">
               Ainda não existem alunos.
+            </p>
+          ) : alunosFiltrados.length === 0 ? (
+            <p className="muted-text">
+              Nenhum aluno corresponde aos filtros selecionados.
             </p>
           ) : (
             <div className="table-wrapper">
@@ -806,7 +961,7 @@ function Alunos() {
                 </thead>
 
                 <tbody>
-                  {alunos.map(
+                  {alunosFiltrados.map(
                     (aluno) => (
                       <tr key={aluno.id}>
                         <td>
