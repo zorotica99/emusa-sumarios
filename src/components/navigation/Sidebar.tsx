@@ -114,7 +114,7 @@ const menuAdministrador: MenuItem[] = [
     path: "/horarios",
   },
   {
-    label: "Grupos automáticos",
+    label: "Turmas e grupos",
     icon: UsersRound,
     path: "/grupos-automaticos",
   },
@@ -168,8 +168,6 @@ function Sidebar() {
       return menuProfessor;
     }
 
-    // Mantém o menu do Administrador exatamente como estava.
-    // A nova página "Os meus alunos" é exclusiva da experiência do Professor.
     return [
       menuProfessor[0],
       ...menuAdministrador.slice(0, 8),

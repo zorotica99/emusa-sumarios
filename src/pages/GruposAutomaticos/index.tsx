@@ -1,4 +1,5 @@
 import {
+  GraduationCap,
   RefreshCw,
   UsersRound,
 } from "lucide-react";
@@ -34,9 +35,10 @@ import {
 } from "../../services/turmas.service";
 import { obterMensagemErro } from "../../utils/errors";
 
-interface AlunoClasseConjunto {
+interface AlunoGrupo {
   aluno: Aluno;
   turmaPrincipal: Turma | null;
+  classeConjunto: Turma | null;
   instrumento: Instrumento | null;
   nivel: Nivel | null;
 }
@@ -44,34 +46,21 @@ interface AlunoClasseConjunto {
 function GruposAutomaticos() {
   const [alunos, setAlunos] = useState<Aluno[]>([]);
   const [turmas, setTurmas] = useState<Turma[]>([]);
-
   const [alunosTurmas, setAlunosTurmas] = useState<
     AlunoTurma[]
   >([]);
-
-  const [perfis, setPerfis] = useState<
-    AlunoPerfil[]
-  >([]);
-
+  const [perfis, setPerfis] = useState<AlunoPerfil[]>([]);
   const [instrumentos, setInstrumentos] = useState<
     Instrumento[]
   >([]);
-
   const [niveis, setNiveis] = useState<Nivel[]>([]);
 
-  const [
-    classeSelecionadaId,
-    setClasseSelecionadaId,
-  ] = useState("");
-
-  const [pesquisa, setPesquisa] =
+  const [grupoSelecionadoId, setGrupoSelecionadoId] =
     useState("");
 
-  const [aCarregar, setACarregar] =
-    useState(true);
-
-  const [erro, setErro] =
-    useState("");
+  const [pesquisa, setPesquisa] = useState("");
+  const [aCarregar, setACarregar] = useState(true);
+  const [erro, setErro] = useState("");
 
   async function carregarDados() {
     try {
@@ -101,32 +90,32 @@ function GruposAutomaticos() {
       setInstrumentos(dadosInstrumentos);
       setNiveis(dadosNiveis);
 
-      const classes =
-        dadosTurmas.filter(
-          (turma) =>
-            turma.tipo_turma === "Conjunto",
+      setGrupoSelecionadoId((grupoAtual) => {
+        const aindaExiste = dadosTurmas.some(
+          (turma) => turma.id === grupoAtual,
         );
 
-      setClasseSelecionadaId(
-        (classeAtual) => {
-          const aindaExiste =
-            classes.some(
-              (classe) =>
-                classe.id === classeAtual,
-            );
+        if (aindaExiste) {
+          return grupoAtual;
+        }
 
-          if (aindaExiste) {
-            return classeAtual;
-          }
+        const primeiraTurmaPrincipal =
+          dadosTurmas.find(
+            (turma) =>
+              turma.tipo_turma === "Principal",
+          );
 
-          return classes[0]?.id ?? "";
-        },
-      );
+        return (
+          primeiraTurmaPrincipal?.id ??
+          dadosTurmas[0]?.id ??
+          ""
+        );
+      });
     } catch (error) {
       setErro(
         obterMensagemErro(
           error,
-          "Não foi possível carregar as classes de conjunto.",
+          "Não foi possível carregar as turmas e grupos.",
         ),
       );
     } finally {
@@ -137,6 +126,19 @@ function GruposAutomaticos() {
   useEffect(() => {
     carregarDados();
   }, []);
+
+  const turmasPrincipais = useMemo(
+    () =>
+      turmas
+        .filter(
+          (turma) =>
+            turma.tipo_turma === "Principal",
+        )
+        .sort((a, b) =>
+          a.nome.localeCompare(b.nome),
+        ),
+    [turmas],
+  );
 
   const classesConjunto = useMemo(
     () =>
@@ -151,29 +153,58 @@ function GruposAutomaticos() {
     [turmas],
   );
 
-  const turmasPrincipais = useMemo(
+  const grupoSelecionado = useMemo(
     () =>
-      turmas.filter(
+      turmas.find(
         (turma) =>
-          turma.tipo_turma === "Principal",
-      ),
-    [turmas],
-  );
-
-  const classeSelecionada = useMemo(
-    () =>
-      classesConjunto.find(
-        (classe) =>
-          classe.id ===
-          classeSelecionadaId,
+          turma.id === grupoSelecionadoId,
       ) ?? null,
-    [
-      classesConjunto,
-      classeSelecionadaId,
-    ],
+    [turmas, grupoSelecionadoId],
   );
 
-  function obterPerfil(
+  function obterIdsTurmasDoAluno(
+    alunoId: string,
+  ): string[] {
+    return alunosTurmas
+      .filter(
+        (registo) =>
+          registo.aluno_id === alunoId,
+      )
+      .map(
+        (registo) =>
+          registo.turma_id,
+      );
+  }
+
+  function obterTurmaPrincipalDoAluno(
+    alunoId: string,
+  ): Turma | null {
+    const ids =
+      obterIdsTurmasDoAluno(alunoId);
+
+    return (
+      turmasPrincipais.find(
+        (turma) =>
+          ids.includes(turma.id),
+      ) ?? null
+    );
+  }
+
+  function obterClasseConjuntoDoAluno(
+    alunoId: string,
+  ): Turma | null {
+    const ids =
+      obterIdsTurmasDoAluno(alunoId);
+
+    return (
+      classesConjunto.find(
+        (turma) =>
+          ids.includes(turma.id),
+      ) ?? null
+    );
+  }
+
+  function obterPerfilDoAluno(
     alunoId: string,
   ): AlunoPerfil | null {
     return (
@@ -184,35 +215,11 @@ function GruposAutomaticos() {
     );
   }
 
-  function obterTurmaPrincipal(
-    alunoId: string,
-  ): Turma | null {
-    const idsTurmasDoAluno =
-      alunosTurmas
-        .filter(
-          (registo) =>
-            registo.aluno_id === alunoId,
-        )
-        .map(
-          (registo) =>
-            registo.turma_id,
-        );
-
-    return (
-      turmasPrincipais.find(
-        (turma) =>
-          idsTurmasDoAluno.includes(
-            turma.id,
-          ),
-      ) ?? null
-    );
-  }
-
-  function obterInstrumento(
+  function obterInstrumentoDoAluno(
     alunoId: string,
   ): Instrumento | null {
     const perfil =
-      obterPerfil(alunoId);
+      obterPerfilDoAluno(alunoId);
 
     if (!perfil?.instrumento_id) {
       return null;
@@ -227,11 +234,11 @@ function GruposAutomaticos() {
     );
   }
 
-  function obterNivel(
+  function obterNivelDoAluno(
     alunoId: string,
   ): Nivel | null {
     const perfil =
-      obterPerfil(alunoId);
+      obterPerfilDoAluno(alunoId);
 
     if (!perfil?.nivel_id) {
       return null;
@@ -245,10 +252,19 @@ function GruposAutomaticos() {
     );
   }
 
-  const alunosDaClasse = useMemo<
-    AlunoClasseConjunto[]
+  function contarAlunos(
+    turmaId: string,
+  ): number {
+    return alunosTurmas.filter(
+      (registo) =>
+        registo.turma_id === turmaId,
+    ).length;
+  }
+
+  const alunosDoGrupo = useMemo<
+    AlunoGrupo[]
   >(() => {
-    if (!classeSelecionada) {
+    if (!grupoSelecionado) {
       return [];
     }
 
@@ -257,7 +273,7 @@ function GruposAutomaticos() {
         .filter(
           (registo) =>
             registo.turma_id ===
-            classeSelecionada.id,
+            grupoSelecionado.id,
         )
         .map(
           (registo) =>
@@ -272,15 +288,19 @@ function GruposAutomaticos() {
       .map((aluno) => ({
         aluno,
         turmaPrincipal:
-          obterTurmaPrincipal(
+          obterTurmaPrincipalDoAluno(
+            aluno.id,
+          ),
+        classeConjunto:
+          obterClasseConjuntoDoAluno(
             aluno.id,
           ),
         instrumento:
-          obterInstrumento(
+          obterInstrumentoDoAluno(
             aluno.id,
           ),
         nivel:
-          obterNivel(
+          obterNivelDoAluno(
             aluno.id,
           ),
       }))
@@ -292,60 +312,51 @@ function GruposAutomaticos() {
   }, [
     alunos,
     alunosTurmas,
-    classeSelecionada,
+    grupoSelecionado,
+    turmasPrincipais,
+    classesConjunto,
     perfis,
     instrumentos,
     niveis,
-    turmasPrincipais,
   ]);
 
-  const alunosFiltrados = useMemo(
-    () => {
-      const termo =
-        pesquisa
-          .trim()
-          .toLowerCase();
+  const alunosFiltrados = useMemo(() => {
+    const termo =
+      pesquisa.trim().toLowerCase();
 
-      if (!termo) {
-        return alunosDaClasse;
-      }
+    if (!termo) {
+      return alunosDoGrupo;
+    }
 
-      return alunosDaClasse.filter(
-        (item) =>
-          [
-            item.aluno.nome,
-            item.turmaPrincipal?.nome ??
-              "",
-            item.instrumento?.nome ??
-              "",
-            item.nivel?.nome ?? "",
-          ].some((valor) =>
-            valor
-              .toLowerCase()
-              .includes(termo),
-          ),
-      );
-    },
-    [
-      alunosDaClasse,
-      pesquisa,
-    ],
-  );
+    return alunosDoGrupo.filter(
+      (item) =>
+        [
+          item.aluno.nome,
+          item.turmaPrincipal?.nome ?? "",
+          item.classeConjunto?.nome ?? "",
+          item.instrumento?.nome ?? "",
+          item.nivel?.nome ?? "",
+        ].some((valor) =>
+          valor
+            .toLowerCase()
+            .includes(termo),
+        ),
+    );
+  }, [alunosDoGrupo, pesquisa]);
 
-  function contarAlunosDaClasse(
-    classeId: string,
-  ): number {
-    return alunosTurmas.filter(
-      (registo) =>
-        registo.turma_id === classeId,
-    ).length;
+  function selecionarGrupo(
+    turmaId: string,
+  ) {
+    setGrupoSelecionadoId(turmaId);
+    setPesquisa("");
+    setErro("");
   }
 
   return (
     <main className="page">
       <PageHeader
-        title="Grupos automáticos"
-        description="Consultar automaticamente os alunos das classes de conjunto."
+        title="Turmas e grupos"
+        description="Consultar automaticamente os alunos das turmas e classes de conjunto."
       />
 
       {erro && (
@@ -357,63 +368,10 @@ function GruposAutomaticos() {
       <section
         style={{
           display: "flex",
-          justifyContent:
-            "space-between",
-          alignItems: "center",
-          gap: "12px",
-          flexWrap: "wrap",
-          marginBottom: "20px",
+          justifyContent: "flex-end",
+          marginBottom: "18px",
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            gap: "8px",
-            flexWrap: "wrap",
-          }}
-        >
-          {classesConjunto.map(
-            (classe) => {
-              const selecionada =
-                classe.id ===
-                classeSelecionadaId;
-
-              return (
-                <button
-                  key={classe.id}
-                  type="button"
-                  className={
-                    selecionada
-                      ? "button button--primary"
-                      : "button button--secondary"
-                  }
-                  onClick={() => {
-                    setClasseSelecionadaId(
-                      classe.id,
-                    );
-
-                    setPesquisa("");
-                  }}
-                >
-                  <UsersRound
-                    size={18}
-                  />
-
-                  {classe.nome}
-
-                  <span>
-                    (
-                    {contarAlunosDaClasse(
-                      classe.id,
-                    )}
-                    )
-                  </span>
-                </button>
-              );
-            },
-          )}
-        </div>
-
         <button
           className="button button--secondary"
           type="button"
@@ -431,215 +389,352 @@ function GruposAutomaticos() {
       {aCarregar ? (
         <section className="panel">
           <p className="muted-text">
-            A carregar classes de
-            conjunto...
+            A carregar turmas e grupos...
           </p>
         </section>
-      ) : classesConjunto.length ===
-        0 ? (
+      ) : turmas.length === 0 ? (
         <section className="panel">
           <p className="muted-text">
-            Ainda não existem classes
-            de conjunto.
-          </p>
-
-          <p className="muted-text">
-            Crie uma em Turmas,
-            escolhendo o tipo
-            "Classe de conjunto".
-          </p>
-        </section>
-      ) : !classeSelecionada ? (
-        <section className="panel">
-          <p className="muted-text">
-            Selecione uma classe de
-            conjunto.
+            Ainda não existem turmas.
           </p>
         </section>
       ) : (
         <>
           <section
+            className="panel"
             style={{
-              display: "grid",
-              gridTemplateColumns:
-                "repeat(auto-fit, minmax(180px, 1fr))",
-              gap: "14px",
-              marginBottom: "20px",
+              marginBottom: "18px",
             }}
           >
-            <article className="panel">
-              <span className="muted-text">
-                Classe de conjunto
-              </span>
+            <h2>
+              <GraduationCap size={21} />
+              Turmas principais
+            </h2>
 
-              <h2
-                style={{
-                  marginBottom: 0,
-                }}
-              >
-                {classeSelecionada.nome}
-              </h2>
-            </article>
-
-            <article className="panel">
-              <span className="muted-text">
-                Alunos
-              </span>
-
-              <h2
-                style={{
-                  marginBottom: 0,
-                }}
-              >
-                {alunosDaClasse.length}
-              </h2>
-            </article>
-
-            <article className="panel">
-              <span className="muted-text">
-                Ano letivo
-              </span>
-
-              <h2
-                style={{
-                  marginBottom: 0,
-                }}
-              >
-                {
-                  classeSelecionada.ano_letivo
-                }
-              </h2>
-            </article>
-          </section>
-
-          <section className="panel">
-            <div
-              style={{
-                display: "flex",
-                justifyContent:
-                  "space-between",
-                alignItems: "flex-end",
-                gap: "16px",
-                flexWrap: "wrap",
-                marginBottom: "18px",
-              }}
-            >
-              <div>
-                <h2
-                  style={{
-                    marginBottom: "4px",
-                  }}
-                >
-                  Participantes
-                </h2>
-
-                <p
-                  className="muted-text"
-                  style={{
-                    margin: 0,
-                  }}
-                >
-                  Os alunos são
-                  atualizados
-                  automaticamente através
-                  do perfil académico.
-                </p>
-              </div>
-
-              <div
-                className="form-field"
-                style={{
-                  marginBottom: 0,
-                  minWidth: "260px",
-                }}
-              >
-                <label htmlFor="pesquisa-participante">
-                  Procurar aluno
-                </label>
-
-                <input
-                  id="pesquisa-participante"
-                  type="search"
-                  value={pesquisa}
-                  onChange={(event) =>
-                    setPesquisa(
-                      event.target.value,
-                    )
-                  }
-                  placeholder="Nome, turma, instrumento ou nível..."
-                />
-              </div>
-            </div>
-
-            {alunosDaClasse.length ===
+            {turmasPrincipais.length ===
             0 ? (
               <p className="muted-text">
-                Ainda não existem alunos
-                nesta classe de conjunto.
-              </p>
-            ) : alunosFiltrados.length ===
-              0 ? (
-              <p className="muted-text">
-                Não foram encontrados
-                alunos com essa pesquisa.
+                Ainda não existem turmas
+                principais.
               </p>
             ) : (
-              <div className="table-wrapper">
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>Aluno</th>
-                      <th>
-                        Turma principal
-                      </th>
-                      <th>
-                        Instrumento
-                      </th>
-                      <th>Nível</th>
-                    </tr>
-                  </thead>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "8px",
+                }}
+              >
+                {turmasPrincipais.map(
+                  (turma) => (
+                    <button
+                      key={turma.id}
+                      type="button"
+                      className={
+                        grupoSelecionadoId ===
+                        turma.id
+                          ? "button button--primary"
+                          : "button button--secondary"
+                      }
+                      onClick={() =>
+                        selecionarGrupo(
+                          turma.id,
+                        )
+                      }
+                    >
+                      <GraduationCap
+                        size={18}
+                      />
 
-                  <tbody>
-                    {alunosFiltrados.map(
-                      (item) => (
-                        <tr
-                          key={
-                            item.aluno.id
-                          }
-                        >
-                          <td>
-                            <strong>
-                              {
-                                item.aluno
-                                  .nome
-                              }
-                            </strong>
-                          </td>
+                      {turma.nome}
 
-                          <td>
-                            {item
-                              .turmaPrincipal
-                              ?.nome ?? "—"}
-                          </td>
-
-                          <td>
-                            {item
-                              .instrumento
-                              ?.nome ?? "—"}
-                          </td>
-
-                          <td>
-                            {item.nivel
-                              ?.nome ?? "—"}
-                          </td>
-                        </tr>
-                      ),
-                    )}
-                  </tbody>
-                </table>
+                      <span>
+                        (
+                        {contarAlunos(
+                          turma.id,
+                        )}
+                        )
+                      </span>
+                    </button>
+                  ),
+                )}
               </div>
             )}
           </section>
+
+          <section
+            className="panel"
+            style={{
+              marginBottom: "18px",
+            }}
+          >
+            <h2>
+              <UsersRound size={21} />
+              Classes de conjunto
+            </h2>
+
+            {classesConjunto.length ===
+            0 ? (
+              <p className="muted-text">
+                Ainda não existem classes
+                de conjunto.
+              </p>
+            ) : (
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "8px",
+                }}
+              >
+                {classesConjunto.map(
+                  (classe) => (
+                    <button
+                      key={classe.id}
+                      type="button"
+                      className={
+                        grupoSelecionadoId ===
+                        classe.id
+                          ? "button button--primary"
+                          : "button button--secondary"
+                      }
+                      onClick={() =>
+                        selecionarGrupo(
+                          classe.id,
+                        )
+                      }
+                    >
+                      <UsersRound
+                        size={18}
+                      />
+
+                      {classe.nome}
+
+                      <span>
+                        (
+                        {contarAlunos(
+                          classe.id,
+                        )}
+                        )
+                      </span>
+                    </button>
+                  ),
+                )}
+              </div>
+            )}
+          </section>
+
+          {grupoSelecionado && (
+            <>
+              <section
+                style={{
+                  display: "grid",
+                  gridTemplateColumns:
+                    "repeat(auto-fit, minmax(180px, 1fr))",
+                  gap: "14px",
+                  marginBottom: "18px",
+                }}
+              >
+                <article className="panel">
+                  <span className="muted-text">
+                    {grupoSelecionado.tipo_turma ===
+                    "Principal"
+                      ? "Turma principal"
+                      : "Classe de conjunto"}
+                  </span>
+
+                  <h2
+                    style={{
+                      marginBottom: 0,
+                    }}
+                  >
+                    {grupoSelecionado.nome}
+                  </h2>
+                </article>
+
+                <article className="panel">
+                  <span className="muted-text">
+                    Alunos
+                  </span>
+
+                  <h2
+                    style={{
+                      marginBottom: 0,
+                    }}
+                  >
+                    {alunosDoGrupo.length}
+                  </h2>
+                </article>
+
+                <article className="panel">
+                  <span className="muted-text">
+                    Ano letivo
+                  </span>
+
+                  <h2
+                    style={{
+                      marginBottom: 0,
+                    }}
+                  >
+                    {
+                      grupoSelecionado.ano_letivo
+                    }
+                  </h2>
+                </article>
+              </section>
+
+              <section className="panel">
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent:
+                      "space-between",
+                    alignItems:
+                      "flex-end",
+                    gap: "16px",
+                    flexWrap: "wrap",
+                    marginBottom: "18px",
+                  }}
+                >
+                  <div>
+                    <h2
+                      style={{
+                        marginBottom:
+                          "4px",
+                      }}
+                    >
+                      Alunos
+                    </h2>
+
+                    <p
+                      className="muted-text"
+                      style={{
+                        margin: 0,
+                      }}
+                    >
+                      Esta lista é
+                      atualizada
+                      automaticamente
+                      através do perfil
+                      académico dos
+                      alunos.
+                    </p>
+                  </div>
+
+                  <div
+                    className="form-field"
+                    style={{
+                      marginBottom: 0,
+                      minWidth: "280px",
+                    }}
+                  >
+                    <label htmlFor="pesquisa-grupo">
+                      Procurar aluno
+                    </label>
+
+                    <input
+                      id="pesquisa-grupo"
+                      type="search"
+                      value={pesquisa}
+                      onChange={(event) =>
+                        setPesquisa(
+                          event.target
+                            .value,
+                        )
+                      }
+                      placeholder="Nome, turma, classe, instrumento ou nível..."
+                    />
+                  </div>
+                </div>
+
+                {alunosDoGrupo.length ===
+                0 ? (
+                  <p className="muted-text">
+                    Ainda não existem
+                    alunos neste grupo.
+                  </p>
+                ) : alunosFiltrados.length ===
+                  0 ? (
+                  <p className="muted-text">
+                    Não foram encontrados
+                    alunos com essa
+                    pesquisa.
+                  </p>
+                ) : (
+                  <div className="table-wrapper">
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>Aluno</th>
+                          <th>
+                            Turma principal
+                          </th>
+                          <th>
+                            Classe de conjunto
+                          </th>
+                          <th>
+                            Instrumento
+                          </th>
+                          <th>Nível</th>
+                        </tr>
+                      </thead>
+
+                      <tbody>
+                        {alunosFiltrados.map(
+                          (item) => (
+                            <tr
+                              key={
+                                item.aluno
+                                  .id
+                              }
+                            >
+                              <td>
+                                <strong>
+                                  {
+                                    item
+                                      .aluno
+                                      .nome
+                                  }
+                                </strong>
+                              </td>
+
+                              <td>
+                                {item
+                                  .turmaPrincipal
+                                  ?.nome ??
+                                  "—"}
+                              </td>
+
+                              <td>
+                                {item
+                                  .classeConjunto
+                                  ?.nome ??
+                                  "—"}
+                              </td>
+
+                              <td>
+                                {item
+                                  .instrumento
+                                  ?.nome ??
+                                  "—"}
+                              </td>
+
+                              <td>
+                                {item
+                                  .nivel
+                                  ?.nome ??
+                                  "—"}
+                              </td>
+                            </tr>
+                          ),
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+            </>
+          )}
         </>
       )}
     </main>
