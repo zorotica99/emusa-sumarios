@@ -6,7 +6,9 @@ export interface AlunoTurma {
   turma_id: string;
 }
 
-export async function listarAlunosTurmas(): Promise<AlunoTurma[]> {
+export async function listarAlunosTurmas(): Promise<
+  AlunoTurma[]
+> {
   const { data, error } = await supabase
     .from("alunos_turmas")
     .select("id, aluno_id, turma_id");
@@ -34,28 +36,79 @@ export async function listarAlunoIdsPorTurma(
     throw new Error(error.message);
   }
 
-  return (data ?? []).map((registo) => registo.aluno_id);
+  return (data ?? []).map(
+    (registo) => registo.aluno_id,
+  );
 }
 
-export async function obterTurmaIdDoAluno(
+export async function listarTurmaIdsDoAluno(
   alunoId: string,
-): Promise<string> {
+): Promise<string[]> {
   if (!alunoId.trim()) {
-    return "";
+    return [];
   }
 
   const { data, error } = await supabase
     .from("alunos_turmas")
     .select("turma_id")
-    .eq("aluno_id", alunoId)
-    .limit(1)
-    .maybeSingle();
+    .eq("aluno_id", alunoId);
 
   if (error) {
     throw new Error(error.message);
   }
 
-  return data?.turma_id ?? "";
+  return (data ?? []).map(
+    (registo) => registo.turma_id,
+  );
+}
+
+export async function definirTurmasDoAluno(
+  alunoId: string,
+  turmaPrincipalId: string,
+  classeConjuntoId: string,
+): Promise<void> {
+  if (!alunoId.trim()) {
+    throw new Error("Aluno inválido.");
+  }
+
+  const idsTurmas = [
+    turmaPrincipalId.trim(),
+    classeConjuntoId.trim(),
+  ].filter(Boolean);
+
+  const idsUnicos = [...new Set(idsTurmas)];
+
+  const { error: erroEliminar } =
+    await supabase
+      .from("alunos_turmas")
+      .delete()
+      .eq("aluno_id", alunoId);
+
+  if (erroEliminar) {
+    throw new Error(
+      erroEliminar.message,
+    );
+  }
+
+  if (idsUnicos.length === 0) {
+    return;
+  }
+
+  const { error: erroCriar } =
+    await supabase
+      .from("alunos_turmas")
+      .insert(
+        idsUnicos.map((turmaId) => ({
+          aluno_id: alunoId,
+          turma_id: turmaId,
+        })),
+      );
+
+  if (erroCriar) {
+    throw new Error(
+      erroCriar.message,
+    );
+  }
 }
 
 export async function definirTurmaDoAluno(
@@ -66,27 +119,9 @@ export async function definirTurmaDoAluno(
     throw new Error("Aluno inválido.");
   }
 
-  const { error: erroEliminar } = await supabase
-    .from("alunos_turmas")
-    .delete()
-    .eq("aluno_id", alunoId);
-
-  if (erroEliminar) {
-    throw new Error(erroEliminar.message);
-  }
-
-  if (!turmaId.trim()) {
-    return;
-  }
-
-  const { error: erroCriar } = await supabase
-    .from("alunos_turmas")
-    .insert({
-      aluno_id: alunoId,
-      turma_id: turmaId,
-    });
-
-  if (erroCriar) {
-    throw new Error(erroCriar.message);
-  }
+  await definirTurmasDoAluno(
+    alunoId,
+    turmaId,
+    "",
+  );
 }

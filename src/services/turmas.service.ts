@@ -1,29 +1,37 @@
 import { supabase } from "../lib/supabase";
 
+export type TipoTurma =
+  | "Principal"
+  | "Conjunto";
+
 export interface Turma {
   id: string;
   nome: string;
   nivel_id: string;
   ano_letivo: string;
+  tipo_turma: TipoTurma;
 }
 
 export interface GuardarTurmaData {
   nome: string;
   nivelId: string;
   anoLetivo: string;
+  tipoTurma: TipoTurma;
 }
 
 export async function listarTurmas(): Promise<Turma[]> {
   const { data, error } = await supabase
     .from("turmas")
-    .select("id, nome, nivel_id, ano_letivo")
+    .select(
+      "id, nome, nivel_id, ano_letivo, tipo_turma",
+    )
     .order("nome", { ascending: true });
 
   if (error) {
     throw new Error(error.message);
   }
 
-  return data ?? [];
+  return (data ?? []) as Turma[];
 }
 
 export async function criarTurma(
@@ -45,21 +53,31 @@ export async function criarTurma(
     throw new Error("O ano letivo é obrigatório.");
   }
 
+  if (
+    dados.tipoTurma !== "Principal" &&
+    dados.tipoTurma !== "Conjunto"
+  ) {
+    throw new Error("Selecione o tipo de turma.");
+  }
+
   const { data, error } = await supabase
     .from("turmas")
     .insert({
       nome,
       nivel_id: nivelId,
       ano_letivo: anoLetivo,
+      tipo_turma: dados.tipoTurma,
     })
-    .select("id, nome, nivel_id, ano_letivo")
+    .select(
+      "id, nome, nivel_id, ano_letivo, tipo_turma",
+    )
     .single();
 
   if (error) {
     throw new Error(error.message);
   }
 
-  return data;
+  return data as Turma;
 }
 
 export async function atualizarTurma(
@@ -86,25 +104,37 @@ export async function atualizarTurma(
     throw new Error("O ano letivo é obrigatório.");
   }
 
+  if (
+    dados.tipoTurma !== "Principal" &&
+    dados.tipoTurma !== "Conjunto"
+  ) {
+    throw new Error("Selecione o tipo de turma.");
+  }
+
   const { data, error } = await supabase
     .from("turmas")
     .update({
       nome,
       nivel_id: nivelId,
       ano_letivo: anoLetivo,
+      tipo_turma: dados.tipoTurma,
     })
     .eq("id", id)
-    .select("id, nome, nivel_id, ano_letivo")
+    .select(
+      "id, nome, nivel_id, ano_letivo, tipo_turma",
+    )
     .single();
 
   if (error) {
     throw new Error(error.message);
   }
 
-  return data;
+  return data as Turma;
 }
 
-export async function eliminarTurma(id: string): Promise<void> {
+export async function eliminarTurma(
+  id: string,
+): Promise<void> {
   if (!id) {
     throw new Error("Turma inválida.");
   }

@@ -11,6 +11,7 @@ import {
   criarTurma,
   eliminarTurma,
   listarTurmas,
+  type TipoTurma,
   type Turma,
 } from "../../services/turmas.service";
 
@@ -18,12 +19,14 @@ interface TurmaFormData {
   nome: string;
   nivelId: string;
   anoLetivo: string;
+  tipoTurma: TipoTurma;
 }
 
 const dadosIniciais: TurmaFormData = {
   nome: "",
   nivelId: "",
   anoLetivo: "",
+  tipoTurma: "Principal",
 };
 
 function Turmas() {
@@ -98,7 +101,10 @@ function Turmas() {
       setErro("");
 
       if (turmaEmEdicao) {
-        await atualizarTurma(turmaEmEdicao.id, formulario);
+        await atualizarTurma(
+          turmaEmEdicao.id,
+          formulario,
+        );
       } else {
         await criarTurma(formulario);
       }
@@ -125,6 +131,7 @@ function Turmas() {
       nome: turma.nome,
       nivelId: turma.nivel_id,
       anoLetivo: turma.ano_letivo,
+      tipoTurma: turma.tipo_turma,
     });
 
     setErro("");
@@ -160,8 +167,15 @@ function Turmas() {
 
   function obterNomeNivel(nivelId: string) {
     return (
-      niveis.find((nivel) => nivel.id === nivelId)?.nome ?? "—"
+      niveis.find((nivel) => nivel.id === nivelId)?.nome ??
+      "—"
     );
+  }
+
+  function obterNomeTipo(tipoTurma: TipoTurma) {
+    return tipoTurma === "Principal"
+      ? "Turma principal"
+      : "Classe de conjunto";
   }
 
   const opcoesNiveis = niveis.map((nivel) => ({
@@ -169,33 +183,74 @@ function Turmas() {
     label: nivel.nome,
   }));
 
+  const opcoesTiposTurma = [
+    {
+      value: "Principal",
+      label: "Turma principal",
+    },
+    {
+      value: "Conjunto",
+      label: "Classe de conjunto",
+    },
+  ];
+
   return (
     <main className="page">
       <PageHeader
         title="Turmas"
-        description="Gerir as turmas da EMUSA."
+        description="Gerir as turmas e classes de conjunto da EMUSA."
       />
 
-      {erro && <div className="alert alert--error">{erro}</div>}
+      {erro && (
+        <div className="alert alert--error">
+          {erro}
+        </div>
+      )}
 
       <section className="crud-grid">
         <div className="panel">
-          <h2>{turmaEmEdicao ? "Editar turma" : "Nova turma"}</h2>
+          <h2>
+            {turmaEmEdicao
+              ? "Editar turma"
+              : "Nova turma"}
+          </h2>
 
-          <form className="form" onSubmit={guardarTurma}>
+          <form
+            className="form"
+            onSubmit={guardarTurma}
+          >
             <div className="form-field">
-              <label htmlFor="turma-nome">Nome</label>
+              <label htmlFor="turma-nome">
+                Nome
+              </label>
 
               <input
                 id="turma-nome"
                 type="text"
                 value={formulario.nome}
                 onChange={(event) =>
-                  alterarCampo("nome", event.target.value)
+                  alterarCampo(
+                    "nome",
+                    event.target.value,
+                  )
                 }
-                placeholder="Ex.: Turma A"
+                placeholder="Ex.: Turma A ou Orquestra"
               />
             </div>
+
+            <SelectField
+              id="turma-tipo"
+              label="Tipo de turma"
+              value={formulario.tipoTurma}
+              options={opcoesTiposTurma}
+              placeholder="Selecione o tipo"
+              onChange={(valor) =>
+                alterarCampo(
+                  "tipoTurma",
+                  valor,
+                )
+              }
+            />
 
             <SelectField
               id="turma-nivel"
@@ -204,7 +259,10 @@ function Turmas() {
               options={opcoesNiveis}
               placeholder="Selecione um nível"
               onChange={(valor) =>
-                alterarCampo("nivelId", valor)
+                alterarCampo(
+                  "nivelId",
+                  valor,
+                )
               }
             />
 
@@ -218,7 +276,10 @@ function Turmas() {
                 type="text"
                 value={formulario.anoLetivo}
                 onChange={(event) =>
-                  alterarCampo("anoLetivo", event.target.value)
+                  alterarCampo(
+                    "anoLetivo",
+                    event.target.value,
+                  )
                 }
                 placeholder="Ex.: 2026/2027"
               />
@@ -256,7 +317,9 @@ function Turmas() {
           <h2>Lista de turmas</h2>
 
           {aCarregar ? (
-            <p className="muted-text">A carregar...</p>
+            <p className="muted-text">
+              A carregar...
+            </p>
           ) : turmas.length === 0 ? (
             <p className="muted-text">
               Ainda não existem turmas.
@@ -267,6 +330,7 @@ function Turmas() {
                 <thead>
                   <tr>
                     <th>Nome</th>
+                    <th>Tipo</th>
                     <th>Nível</th>
                     <th>Ano letivo</th>
                     <th className="data-table__actions">
@@ -279,7 +343,16 @@ function Turmas() {
                   {turmas.map((turma) => (
                     <tr key={turma.id}>
                       <td>{turma.nome}</td>
-                      <td>{obterNomeNivel(turma.nivel_id)}</td>
+                      <td>
+                        {obterNomeTipo(
+                          turma.tipo_turma,
+                        )}
+                      </td>
+                      <td>
+                        {obterNomeNivel(
+                          turma.nivel_id,
+                        )}
+                      </td>
                       <td>{turma.ano_letivo}</td>
 
                       <td className="data-table__actions">
@@ -287,7 +360,9 @@ function Turmas() {
                           className="icon-button"
                           type="button"
                           title="Editar"
-                          onClick={() => editarTurma(turma)}
+                          onClick={() =>
+                            editarTurma(turma)
+                          }
                         >
                           <Pencil size={18} />
                         </button>
@@ -296,7 +371,9 @@ function Turmas() {
                           className="icon-button icon-button--danger"
                           type="button"
                           title="Eliminar"
-                          onClick={() => removerTurma(turma)}
+                          onClick={() =>
+                            removerTurma(turma)
+                          }
                         >
                           <Trash2 size={18} />
                         </button>

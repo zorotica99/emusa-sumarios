@@ -4,7 +4,7 @@ import {
   Trash2,
   UserRoundCog,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import PageHeader from "../../components/common/PageHeader";
 import SelectField from "../../components/forms/SelectField";
 import {
@@ -20,7 +20,7 @@ import {
   type AlunoPerfil,
 } from "../../services/alunosPerfis.service";
 import {
-  definirTurmaDoAluno,
+  definirTurmasDoAluno,
   listarAlunosTurmas,
   type AlunoTurma,
 } from "../../services/alunosTurmas.service";
@@ -44,7 +44,8 @@ interface AlunoFormData {
   dataNascimento: string;
   encarregado: string;
   contacto: string;
-  turmaId: string;
+  turmaPrincipalId: string;
+  classeConjuntoId: string;
   instrumentoId: string;
   nivelId: string;
 }
@@ -54,12 +55,15 @@ const dadosIniciais: AlunoFormData = {
   dataNascimento: "",
   encarregado: "",
   contacto: "",
-  turmaId: "",
+  turmaPrincipalId: "",
+  classeConjuntoId: "",
   instrumentoId: "",
   nivelId: "",
 };
 
-function formatarData(data: string | null): string {
+function formatarData(
+  data: string | null,
+): string {
   if (!data) {
     return "—";
   }
@@ -78,9 +82,11 @@ function formatarData(data: string | null): string {
 function Alunos() {
   const [alunos, setAlunos] = useState<Aluno[]>([]);
   const [turmas, setTurmas] = useState<Turma[]>([]);
+
   const [instrumentos, setInstrumentos] = useState<
     Instrumento[]
   >([]);
+
   const [niveis, setNiveis] = useState<Nivel[]>([]);
 
   const [alunosTurmas, setAlunosTurmas] = useState<
@@ -99,6 +105,7 @@ function Alunos() {
 
   const [aCarregar, setACarregar] = useState(true);
   const [aGuardar, setAGuardar] = useState(false);
+
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState("");
 
@@ -144,6 +151,32 @@ function Alunos() {
     carregarDados();
   }, []);
 
+  const turmasPrincipais = useMemo(
+    () =>
+      turmas
+        .filter(
+          (turma) =>
+            turma.tipo_turma === "Principal",
+        )
+        .sort((a, b) =>
+          a.nome.localeCompare(b.nome),
+        ),
+    [turmas],
+  );
+
+  const classesConjunto = useMemo(
+    () =>
+      turmas
+        .filter(
+          (turma) =>
+            turma.tipo_turma === "Conjunto",
+        )
+        .sort((a, b) =>
+          a.nome.localeCompare(b.nome),
+        ),
+    [turmas],
+  );
+
   function alterarCampo(
     campo: keyof AlunoFormData,
     valor: string,
@@ -157,34 +190,93 @@ function Alunos() {
     setSucesso("");
   }
 
-  function obterTurmaIdDoAluno(alunoId: string): string {
-    return (
-      alunosTurmas.find(
-        (registo) => registo.aluno_id === alunoId,
-      )?.turma_id ?? ""
-    );
-  }
-
   function obterPerfilDoAluno(
     alunoId: string,
   ): AlunoPerfil | undefined {
     return alunosPerfis.find(
-      (perfil) => perfil.aluno_id === alunoId,
+      (perfil) =>
+        perfil.aluno_id === alunoId,
     );
   }
 
-  function obterNomeTurma(alunoId: string): string {
-    const turmaId = obterTurmaIdDoAluno(alunoId);
+  function obterRegistosTurmaDoAluno(
+    alunoId: string,
+  ): AlunoTurma[] {
+    return alunosTurmas.filter(
+      (registo) =>
+        registo.aluno_id === alunoId,
+    );
+  }
+
+  function obterTurmaPrincipalIdDoAluno(
+    alunoId: string,
+  ): string {
+    const ids = obterRegistosTurmaDoAluno(
+      alunoId,
+    ).map(
+      (registo) => registo.turma_id,
+    );
 
     return (
-      turmas.find((turma) => turma.id === turmaId)?.nome ??
-      "—"
+      turmasPrincipais.find((turma) =>
+        ids.includes(turma.id),
+      )?.id ?? ""
     );
   }
 
-  function obterNomeInstrumento(alunoId: string): string {
+  function obterClasseConjuntoIdDoAluno(
+    alunoId: string,
+  ): string {
+    const ids = obterRegistosTurmaDoAluno(
+      alunoId,
+    ).map(
+      (registo) => registo.turma_id,
+    );
+
+    return (
+      classesConjunto.find((turma) =>
+        ids.includes(turma.id),
+      )?.id ?? ""
+    );
+  }
+
+  function obterNomeTurmaPrincipal(
+    alunoId: string,
+  ): string {
+    const id =
+      obterTurmaPrincipalIdDoAluno(
+        alunoId,
+      );
+
+    return (
+      turmasPrincipais.find(
+        (turma) => turma.id === id,
+      )?.nome ?? "—"
+    );
+  }
+
+  function obterNomeClasseConjunto(
+    alunoId: string,
+  ): string {
+    const id =
+      obterClasseConjuntoIdDoAluno(
+        alunoId,
+      );
+
+    return (
+      classesConjunto.find(
+        (turma) => turma.id === id,
+      )?.nome ?? "—"
+    );
+  }
+
+  function obterNomeInstrumento(
+    alunoId: string,
+  ): string {
     const instrumentoId =
-      obterPerfilDoAluno(alunoId)?.instrumento_id;
+      obterPerfilDoAluno(
+        alunoId,
+      )?.instrumento_id;
 
     if (!instrumentoId) {
       return "—";
@@ -192,21 +284,29 @@ function Alunos() {
 
     return (
       instrumentos.find(
-        (instrumento) => instrumento.id === instrumentoId,
+        (instrumento) =>
+          instrumento.id === instrumentoId,
       )?.nome ?? "—"
     );
   }
 
-  function obterNomeNivel(alunoId: string): string {
-    const nivelId = obterPerfilDoAluno(alunoId)?.nivel_id;
+  function obterNomeNivel(
+    alunoId: string,
+  ): string {
+    const nivelId =
+      obterPerfilDoAluno(
+        alunoId,
+      )?.nivel_id;
 
     if (!nivelId) {
       return "—";
     }
 
     return (
-      niveis.find((nivel) => nivel.id === nivelId)?.nome ??
-      "—"
+      niveis.find(
+        (nivel) =>
+          nivel.id === nivelId,
+      )?.nome ?? "—"
     );
   }
 
@@ -216,17 +316,23 @@ function Alunos() {
     event.preventDefault();
 
     if (!formulario.nome.trim()) {
-      setErro("O nome do aluno é obrigatório.");
+      setErro(
+        "O nome do aluno é obrigatório.",
+      );
       return;
     }
 
-    if (!formulario.turmaId) {
-      setErro("Selecione uma turma.");
+    if (!formulario.turmaPrincipalId) {
+      setErro(
+        "Selecione a turma principal.",
+      );
       return;
     }
 
     if (!formulario.instrumentoId) {
-      setErro("Selecione o instrumento principal.");
+      setErro(
+        "Selecione o instrumento principal.",
+      );
       return;
     }
 
@@ -242,36 +348,58 @@ function Alunos() {
 
       let alunoGuardado: Aluno;
 
+      const dadosAluno = {
+        nome: formulario.nome,
+        dataNascimento:
+          formulario.dataNascimento,
+        encarregado:
+          formulario.encarregado,
+        contacto:
+          formulario.contacto,
+      };
+
       if (alunoEmEdicao) {
-        alunoGuardado = await atualizarAluno(
-          alunoEmEdicao.id,
-          formulario,
-        );
+        alunoGuardado =
+          await atualizarAluno(
+            alunoEmEdicao.id,
+            dadosAluno,
+          );
       } else {
-        alunoGuardado = await criarAluno(formulario);
+        alunoGuardado =
+          await criarAluno(
+            dadosAluno,
+          );
       }
 
       await Promise.all([
-        definirTurmaDoAluno(
+        definirTurmasDoAluno(
           alunoGuardado.id,
-          formulario.turmaId,
+          formulario.turmaPrincipalId,
+          formulario.classeConjuntoId,
         ),
+
         guardarPerfilDoAluno({
           alunoId: alunoGuardado.id,
-          instrumentoId: formulario.instrumentoId,
-          nivelId: formulario.nivelId,
+          instrumentoId:
+            formulario.instrumentoId,
+          nivelId:
+            formulario.nivelId,
         }),
       ]);
 
+      const estavaAEditar =
+        Boolean(alunoEmEdicao);
+
       setFormulario(dadosIniciais);
       setAlunoEmEdicao(null);
+
+      await carregarDados();
+
       setSucesso(
-        alunoEmEdicao
+        estavaAEditar
           ? "Aluno atualizado com sucesso."
           : "Aluno adicionado com sucesso.",
       );
-
-      await carregarDados();
     } catch (error) {
       setErro(
         obterMensagemErro(
@@ -284,19 +412,34 @@ function Alunos() {
     }
   }
 
-  function editarAluno(aluno: Aluno) {
-    const perfil = obterPerfilDoAluno(aluno.id);
+  function editarAluno(
+    aluno: Aluno,
+  ) {
+    const perfil =
+      obterPerfilDoAluno(aluno.id);
 
     setAlunoEmEdicao(aluno);
 
     setFormulario({
       nome: aluno.nome,
-      dataNascimento: aluno.data_nascimento ?? "",
-      encarregado: aluno.encarregado ?? "",
-      contacto: aluno.contacto ?? "",
-      turmaId: obterTurmaIdDoAluno(aluno.id),
-      instrumentoId: perfil?.instrumento_id ?? "",
-      nivelId: perfil?.nivel_id ?? "",
+      dataNascimento:
+        aluno.data_nascimento ?? "",
+      encarregado:
+        aluno.encarregado ?? "",
+      contacto:
+        aluno.contacto ?? "",
+      turmaPrincipalId:
+        obterTurmaPrincipalIdDoAluno(
+          aluno.id,
+        ),
+      classeConjuntoId:
+        obterClasseConjuntoIdDoAluno(
+          aluno.id,
+        ),
+      instrumentoId:
+        perfil?.instrumento_id ?? "",
+      nivelId:
+        perfil?.nivel_id ?? "",
     });
 
     setErro("");
@@ -315,10 +458,13 @@ function Alunos() {
     setSucesso("");
   }
 
-  async function removerAluno(aluno: Aluno) {
-    const confirmado = window.confirm(
-      `Tem a certeza de que pretende eliminar "${aluno.nome}"?`,
-    );
+  async function removerAluno(
+    aluno: Aluno,
+  ) {
+    const confirmado =
+      window.confirm(
+        `Tem a certeza de que pretende eliminar "${aluno.nome}"?`,
+      );
 
     if (!confirmado) {
       return;
@@ -331,7 +477,9 @@ function Alunos() {
       await eliminarAluno(aluno.id);
       await carregarDados();
 
-      setSucesso("Aluno eliminado com sucesso.");
+      setSucesso(
+        "Aluno eliminado com sucesso.",
+      );
     } catch (error) {
       setErro(
         obterMensagemErro(
@@ -342,22 +490,37 @@ function Alunos() {
     }
   }
 
-  const opcoesTurmas = turmas.map((turma) => ({
-    value: turma.id,
-    label: `${turma.nome} — ${turma.ano_letivo}`,
-  }));
+  const opcoesTurmasPrincipais =
+    turmasPrincipais.map(
+      (turma) => ({
+        value: turma.id,
+        label: `${turma.nome} — ${turma.ano_letivo}`,
+      }),
+    );
 
-  const opcoesInstrumentos = instrumentos.map(
-    (instrumento) => ({
-      value: instrumento.id,
-      label: instrumento.nome,
-    }),
-  );
+  const opcoesClassesConjunto =
+    classesConjunto.map(
+      (turma) => ({
+        value: turma.id,
+        label: `${turma.nome} — ${turma.ano_letivo}`,
+      }),
+    );
 
-  const opcoesNiveis = niveis.map((nivel) => ({
-    value: nivel.id,
-    label: nivel.nome,
-  }));
+  const opcoesInstrumentos =
+    instrumentos.map(
+      (instrumento) => ({
+        value: instrumento.id,
+        label: instrumento.nome,
+      }),
+    );
+
+  const opcoesNiveis =
+    niveis.map(
+      (nivel) => ({
+        value: nivel.id,
+        label: nivel.nome,
+      }),
+    );
 
   return (
     <main className="page">
@@ -388,28 +551,40 @@ function Alunos() {
               : "Novo aluno"}
           </h2>
 
-          <form className="form" onSubmit={guardarAluno}>
+          <form
+            className="form"
+            onSubmit={guardarAluno}
+          >
             <section className="student-form-section">
               <header>
                 <span>1</span>
 
                 <div>
-                  <strong>Dados pessoais</strong>
+                  <strong>
+                    Dados pessoais
+                  </strong>
+
                   <p>
-                    Informação de identificação e contacto.
+                    Informação de identificação
+                    e contacto.
                   </p>
                 </div>
               </header>
 
               <div className="form-field">
-                <label htmlFor="aluno-nome">Nome</label>
+                <label htmlFor="aluno-nome">
+                  Nome
+                </label>
 
                 <input
                   id="aluno-nome"
                   type="text"
                   value={formulario.nome}
                   onChange={(event) =>
-                    alterarCampo("nome", event.target.value)
+                    alterarCampo(
+                      "nome",
+                      event.target.value,
+                    )
                   }
                   placeholder="Nome completo do aluno"
                 />
@@ -423,7 +598,9 @@ function Alunos() {
                 <input
                   id="aluno-data"
                   type="date"
-                  value={formulario.dataNascimento}
+                  value={
+                    formulario.dataNascimento
+                  }
                   onChange={(event) =>
                     alterarCampo(
                       "dataNascimento",
@@ -441,7 +618,9 @@ function Alunos() {
                 <input
                   id="aluno-encarregado"
                   type="text"
-                  value={formulario.encarregado}
+                  value={
+                    formulario.encarregado
+                  }
                   onChange={(event) =>
                     alterarCampo(
                       "encarregado",
@@ -460,7 +639,9 @@ function Alunos() {
                 <input
                   id="aluno-contacto"
                   type="text"
-                  value={formulario.contacto}
+                  value={
+                    formulario.contacto
+                  }
                   onChange={(event) =>
                     alterarCampo(
                       "contacto",
@@ -477,43 +658,86 @@ function Alunos() {
                 <span>2</span>
 
                 <div>
-                  <strong>Perfil académico</strong>
+                  <strong>
+                    Perfil académico
+                  </strong>
+
                   <p>
-                    Dados utilizados no horário e nos sumários.
+                    Turma, classe de conjunto,
+                    instrumento e nível.
                   </p>
                 </div>
               </header>
 
               <SelectField
-                id="aluno-turma"
-                label="Turma"
-                value={formulario.turmaId}
-                options={opcoesTurmas}
-                placeholder="Selecione uma turma"
+                id="aluno-turma-principal"
+                label="Turma principal"
+                value={
+                  formulario.turmaPrincipalId
+                }
+                options={
+                  opcoesTurmasPrincipais
+                }
+                placeholder="Selecione uma turma principal"
                 onChange={(valor) =>
-                  alterarCampo("turmaId", valor)
+                  alterarCampo(
+                    "turmaPrincipalId",
+                    valor,
+                  )
+                }
+              />
+
+              <SelectField
+                id="aluno-classe-conjunto"
+                label="Classe de conjunto"
+                value={
+                  formulario.classeConjuntoId
+                }
+                options={
+                  opcoesClassesConjunto
+                }
+                placeholder="Sem classe de conjunto"
+                onChange={(valor) =>
+                  alterarCampo(
+                    "classeConjuntoId",
+                    valor,
+                  )
                 }
               />
 
               <SelectField
                 id="aluno-instrumento"
                 label="Instrumento principal"
-                value={formulario.instrumentoId}
-                options={opcoesInstrumentos}
+                value={
+                  formulario.instrumentoId
+                }
+                options={
+                  opcoesInstrumentos
+                }
                 placeholder="Selecione um instrumento"
                 onChange={(valor) =>
-                  alterarCampo("instrumentoId", valor)
+                  alterarCampo(
+                    "instrumentoId",
+                    valor,
+                  )
                 }
               />
 
               <SelectField
                 id="aluno-nivel"
                 label="Nível"
-                value={formulario.nivelId}
-                options={opcoesNiveis}
+                value={
+                  formulario.nivelId
+                }
+                options={
+                  opcoesNiveis
+                }
                 placeholder="Selecione um nível"
                 onChange={(valor) =>
-                  alterarCampo("nivelId", valor)
+                  alterarCampo(
+                    "nivelId",
+                    valor,
+                  )
                 }
               />
             </section>
@@ -537,7 +761,9 @@ function Alunos() {
                 <button
                   className="button button--secondary"
                   type="button"
-                  onClick={cancelarEdicao}
+                  onClick={
+                    cancelarEdicao
+                  }
                 >
                   Cancelar
                 </button>
@@ -564,11 +790,15 @@ function Alunos() {
                   <tr>
                     <th>Nome</th>
                     <th>Turma</th>
+                    <th>
+                      Classe de conjunto
+                    </th>
                     <th>Instrumento</th>
                     <th>Nível</th>
                     <th>Nascimento</th>
                     <th>Encarregado</th>
                     <th>Contacto</th>
+
                     <th className="data-table__actions">
                       Ações
                     </th>
@@ -576,59 +806,89 @@ function Alunos() {
                 </thead>
 
                 <tbody>
-                  {alunos.map((aluno) => (
-                    <tr key={aluno.id}>
-                      <td>
-                        <strong>{aluno.nome}</strong>
-                      </td>
+                  {alunos.map(
+                    (aluno) => (
+                      <tr key={aluno.id}>
+                        <td>
+                          <strong>
+                            {aluno.nome}
+                          </strong>
+                        </td>
 
-                      <td>
-                        {obterNomeTurma(aluno.id)}
-                      </td>
+                        <td>
+                          {obterNomeTurmaPrincipal(
+                            aluno.id,
+                          )}
+                        </td>
 
-                      <td>
-                        {obterNomeInstrumento(aluno.id)}
-                      </td>
+                        <td>
+                          {obterNomeClasseConjunto(
+                            aluno.id,
+                          )}
+                        </td>
 
-                      <td>
-                        {obterNomeNivel(aluno.id)}
-                      </td>
+                        <td>
+                          {obterNomeInstrumento(
+                            aluno.id,
+                          )}
+                        </td>
 
-                      <td>
-                        {formatarData(
-                          aluno.data_nascimento,
-                        )}
-                      </td>
+                        <td>
+                          {obterNomeNivel(
+                            aluno.id,
+                          )}
+                        </td>
 
-                      <td>
-                        {aluno.encarregado || "—"}
-                      </td>
+                        <td>
+                          {formatarData(
+                            aluno.data_nascimento,
+                          )}
+                        </td>
 
-                      <td>
-                        {aluno.contacto || "—"}
-                      </td>
+                        <td>
+                          {aluno.encarregado ||
+                            "—"}
+                        </td>
 
-                      <td className="data-table__actions">
-                        <button
-                          className="icon-button"
-                          type="button"
-                          title="Editar"
-                          onClick={() => editarAluno(aluno)}
-                        >
-                          <Pencil size={18} />
-                        </button>
+                        <td>
+                          {aluno.contacto ||
+                            "—"}
+                        </td>
 
-                        <button
-                          className="icon-button icon-button--danger"
-                          type="button"
-                          title="Eliminar"
-                          onClick={() => removerAluno(aluno)}
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                        <td className="data-table__actions">
+                          <button
+                            className="icon-button"
+                            type="button"
+                            title="Editar"
+                            onClick={() =>
+                              editarAluno(
+                                aluno,
+                              )
+                            }
+                          >
+                            <Pencil
+                              size={18}
+                            />
+                          </button>
+
+                          <button
+                            className="icon-button icon-button--danger"
+                            type="button"
+                            title="Eliminar"
+                            onClick={() =>
+                              removerAluno(
+                                aluno,
+                              )
+                            }
+                          >
+                            <Trash2
+                              size={18}
+                            />
+                          </button>
+                        </td>
+                      </tr>
+                    ),
+                  )}
                 </tbody>
               </table>
             </div>
