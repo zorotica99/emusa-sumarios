@@ -2,6 +2,7 @@ import {
   CalendarDays,
   Clock3,
   History,
+  Eye,
   Pencil,
   Plus,
   Trash2,
@@ -153,6 +154,9 @@ function Sumarios() {
 
   const [sumarioEmEdicao, setSumarioEmEdicao] =
     useState<Sumario | null>(null);
+
+  const sumarioBloqueadoParaProfessor =
+    Boolean(sumarioEmEdicao) && !eAdministrador;
 
   const [aCarregar, setACarregar] = useState(true);
   const [aCarregarPresencas, setACarregarPresencas] =
@@ -588,6 +592,13 @@ function Sumarios() {
   ) {
     event.preventDefault();
 
+    if (sumarioBloqueadoParaProfessor) {
+      setErro(
+        "Depois de guardado, o sumário fica disponível apenas para consulta. Para corrigir um sumário, contacte o administrador.",
+      );
+      return;
+    }
+
     if (!formulario.data) {
       setErro("Selecione a data da aula.");
       return;
@@ -671,7 +682,7 @@ function Sumarios() {
     }
   }
 
-  function editarSumario(sumario: Sumario) {
+  function abrirSumarioDoHistorico(sumario: Sumario) {
     setSumarioEmEdicao(sumario);
 
     setFormulario({
@@ -757,7 +768,9 @@ function Sumarios() {
         <div className="panel">
           <h2>
             {sumarioEmEdicao
-              ? "Editar sumário"
+              ? eAdministrador
+                ? "Editar sumário"
+                : "Consultar sumário"
               : "Novo sumário"}
           </h2>
 
@@ -774,6 +787,7 @@ function Sumarios() {
                 id="sumario-data"
                 type="date"
                 value={formulario.data}
+                disabled={sumarioBloqueadoParaProfessor}
                 onChange={(event) =>
                   alterarData(
                     event.target.value,
@@ -811,6 +825,7 @@ function Sumarios() {
                     : "Não existem aulas neste dia"
               }
               disabled={
+                sumarioBloqueadoParaProfessor ||
                 !formulario.data ||
                 horariosDaData.length === 0
               }
@@ -897,6 +912,7 @@ function Sumarios() {
               <textarea
                 id="sumario-conteudo"
                 value={formulario.conteudo}
+                readOnly={sumarioBloqueadoParaProfessor}
                 onChange={(event) => {
                   setFormulario((atual) => ({
                     ...atual,
@@ -946,6 +962,7 @@ function Sumarios() {
                   <div className="attendance-quick-actions">
                     <button
                       type="button"
+                      disabled={sumarioBloqueadoParaProfessor}
                       onClick={() =>
                         marcarTodos("Presente")
                       }
@@ -955,6 +972,7 @@ function Sumarios() {
 
                     <button
                       type="button"
+                      disabled={sumarioBloqueadoParaProfessor}
                       onClick={() =>
                         marcarTodos("Falta")
                       }
@@ -975,6 +993,7 @@ function Sumarios() {
                           </strong>
 
                           <select
+                            disabled={sumarioBloqueadoParaProfessor}
                             value={
                               estadosPresenca[
                                 aluno.id
@@ -1008,24 +1027,35 @@ function Sumarios() {
               )}
             </section>
 
-            <div className="form-actions">
-              <button
-                className="button button--primary"
-                type="submit"
-                disabled={aGuardar}
-              >
-                {aGuardar ? (
-                  "A guardar..."
-                ) : (
-                  <>
-                    <Plus size={18} />
+            {sumarioBloqueadoParaProfessor && (
+              <div className="summary-date-info">
+                <Eye size={18} />
+                <span>
+                  Este sumário já foi guardado e está disponível apenas para consulta.
+                </span>
+              </div>
+            )}
 
-                    {sumarioEmEdicao
-                      ? "Guardar alterações"
-                      : "Guardar sumário e presenças"}
-                  </>
-                )}
-              </button>
+            <div className="form-actions">
+              {!sumarioBloqueadoParaProfessor && (
+                <button
+                  className="button button--primary"
+                  type="submit"
+                  disabled={aGuardar}
+                >
+                  {aGuardar ? (
+                    "A guardar..."
+                  ) : (
+                    <>
+                      <Plus size={18} />
+
+                      {sumarioEmEdicao
+                        ? "Guardar alterações"
+                        : "Guardar sumário e presenças"}
+                    </>
+                  )}
+                </button>
+              )}
 
               {(sumarioEmEdicao ||
                 formulario.data ||
@@ -1035,7 +1065,9 @@ function Sumarios() {
                   type="button"
                   onClick={limparFormulario}
                 >
-                  Limpar
+                  {sumarioBloqueadoParaProfessor
+                    ? "Fechar consulta"
+                    : "Limpar"}
                 </button>
               )}
             </div>
@@ -1126,12 +1158,20 @@ function Sumarios() {
                             <button
                               className="icon-button"
                               type="button"
-                              title="Editar"
+                              title={
+                                eAdministrador
+                                  ? "Editar"
+                                  : "Ver sumário"
+                              }
                               onClick={() =>
-                                editarSumario(sumario)
+                                abrirSumarioDoHistorico(sumario)
                               }
                             >
-                              <Pencil size={18} />
+                              {eAdministrador ? (
+                                <Pencil size={18} />
+                              ) : (
+                                <Eye size={18} />
+                              )}
                             </button>
 
                             {eAdministrador && (
