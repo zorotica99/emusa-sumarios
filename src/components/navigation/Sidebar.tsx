@@ -65,11 +65,17 @@ const menuProfessor: MenuItem[] = [
     path: "/presencas",
   },
   {
-    label: "Relatório por aluno",
-    icon: FileUser,
-    path: "/relatorio-aluno",
+    label: "Os meus alunos",
+    icon: GraduationCap,
+    path: "/meus-alunos",
   },
 ];
+
+const relatorioAlunoAdministrador: MenuItem = {
+  label: "Relatório por aluno",
+  icon: FileUser,
+  path: "/relatorio-aluno",
+};
 
 const menuAdministrador: MenuItem[] = [
   {
@@ -157,26 +163,23 @@ function Sidebar() {
     setACarregarSumarios,
   ] = useState(false);
 
-  const itens = useMemo(
-    () =>
-      eAdministrador
-        ? [
-            menuProfessor[0],
+  const itens = useMemo(() => {
+    if (!eAdministrador) {
+      return menuProfessor;
+    }
 
-            ...menuAdministrador.slice(
-              0,
-              8,
-            ),
-
-            ...menuProfessor.slice(1),
-
-            ...menuAdministrador.slice(
-              8,
-            ),
-          ]
-        : menuProfessor,
-    [eAdministrador],
-  );
+    // Mantém o menu do Administrador exatamente como estava.
+    // A nova página "Os meus alunos" é exclusiva da experiência do Professor.
+    return [
+      menuProfessor[0],
+      ...menuAdministrador.slice(0, 8),
+      menuProfessor[1],
+      menuProfessor[2],
+      menuProfessor[3],
+      relatorioAlunoAdministrador,
+      ...menuAdministrador.slice(8),
+    ];
+  }, [eAdministrador]);
 
   const carregarNumeroSumarios =
     useCallback(async () => {

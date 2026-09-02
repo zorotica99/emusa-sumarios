@@ -13,6 +13,7 @@ import Horarios from "../pages/Horarios";
 import Instrumentos from "../pages/Instrumentos";
 import InterrupcoesLetivas from "../pages/InterrupcoesLetivas";
 import Login from "../pages/Login";
+import MeusAlunos from "../pages/MeusAlunos/index";
 import Niveis from "../pages/Niveis";
 import NotFound from "../pages/NotFound";
 import NovaPassword from "../pages/NovaPassword";
@@ -95,8 +96,15 @@ function AppRoutes() {
       />
 
       <Route
-        path="/relatorio-aluno"
+        path="/meus-alunos"
         element={proteger(
+          <MeusAlunos />,
+        )}
+      />
+
+      <Route
+        path="/relatorio-aluno"
+        element={protegerAdministrador(
           <RelatorioAluno />,
         )}
       />
