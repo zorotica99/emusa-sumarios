@@ -5,6 +5,8 @@ import {
   Eye,
   Pencil,
   Plus,
+  Search,
+  FilterX,
   Trash2,
   UsersRound,
 } from "lucide-react";
@@ -197,6 +199,12 @@ function Sumarios() {
 
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState("");
+
+  const [pesquisaHistorico, setPesquisaHistorico] = useState("");
+  const [filtroProfessor, setFiltroProfessor] = useState("");
+  const [filtroDisciplina, setFiltroDisciplina] = useState("");
+  const [filtroTurma, setFiltroTurma] = useState("");
+  const [filtroData, setFiltroData] = useState("");
 
   const [instanteAtual, setInstanteAtual] = useState(() =>
     new Date(),
@@ -658,6 +666,142 @@ function Sumarios() {
         (disciplina) => disciplina.id === id,
       )?.nome ?? "—"
     );
+  }
+
+  const opcoesFiltroProfessores = useMemo(() => {
+    const nomes = new Set<string>();
+
+    sumariosVisiveis.forEach((sumario) => {
+      const horario = horariosDoProfessor.find(
+        (item) => item.id === sumario.horario_id,
+      );
+
+      if (horario) {
+        nomes.add(obterProfessorNome(horario.professor_id));
+      }
+    });
+
+    return Array.from(nomes).sort((a, b) =>
+      a.localeCompare(b, "pt"),
+    );
+  }, [sumariosVisiveis, horariosDoProfessor, professores]);
+
+  const opcoesFiltroDisciplinas = useMemo(() => {
+    const nomes = new Set<string>();
+
+    sumariosVisiveis.forEach((sumario) => {
+      const horario = horariosDoProfessor.find(
+        (item) => item.id === sumario.horario_id,
+      );
+
+      if (horario) {
+        nomes.add(obterDisciplinaNome(horario.disciplina_id));
+      }
+    });
+
+    return Array.from(nomes).sort((a, b) =>
+      a.localeCompare(b, "pt"),
+    );
+  }, [sumariosVisiveis, horariosDoProfessor, disciplinas]);
+
+  const opcoesFiltroTurmas = useMemo(() => {
+    const nomes = new Set<string>();
+
+    sumariosVisiveis.forEach((sumario) => {
+      const horario = horariosDoProfessor.find(
+        (item) => item.id === sumario.horario_id,
+      );
+
+      if (horario) {
+        nomes.add(obterTurmaNome(horario.turma_id));
+      }
+    });
+
+    return Array.from(nomes).sort((a, b) =>
+      a.localeCompare(b, "pt"),
+    );
+  }, [sumariosVisiveis, horariosDoProfessor, turmas]);
+
+  const sumariosHistoricoFiltrados = useMemo(() => {
+    const termo = pesquisaHistorico.trim().toLocaleLowerCase("pt");
+
+    return sumariosVisiveis.filter((sumario) => {
+      const horario = horariosDoProfessor.find(
+        (item) => item.id === sumario.horario_id,
+      );
+
+      const professor = horario
+        ? obterProfessorNome(horario.professor_id)
+        : "—";
+
+      const disciplina = horario
+        ? obterDisciplinaNome(horario.disciplina_id)
+        : "—";
+
+      const turma = horario
+        ? obterTurmaNome(horario.turma_id)
+        : "—";
+
+      const correspondePesquisa =
+        !termo ||
+        [
+          formatarData(sumario.data),
+          sumario.data,
+          professor,
+          disciplina,
+          turma,
+          sumario.conteudo,
+        ]
+          .join(" ")
+          .toLocaleLowerCase("pt")
+          .includes(termo);
+
+      const correspondeProfessor =
+        !filtroProfessor || professor === filtroProfessor;
+
+      const correspondeDisciplina =
+        !filtroDisciplina || disciplina === filtroDisciplina;
+
+      const correspondeTurma =
+        !filtroTurma || turma === filtroTurma;
+
+      const correspondeData =
+        !filtroData || sumario.data === filtroData;
+
+      return (
+        correspondePesquisa &&
+        correspondeProfessor &&
+        correspondeDisciplina &&
+        correspondeTurma &&
+        correspondeData
+      );
+    });
+  }, [
+    sumariosVisiveis,
+    horariosDoProfessor,
+    professores,
+    disciplinas,
+    turmas,
+    pesquisaHistorico,
+    filtroProfessor,
+    filtroDisciplina,
+    filtroTurma,
+    filtroData,
+  ]);
+
+  const historicoTemFiltros =
+    Boolean(pesquisaHistorico.trim()) ||
+    Boolean(filtroProfessor) ||
+    Boolean(filtroDisciplina) ||
+    Boolean(filtroTurma) ||
+    Boolean(filtroData);
+
+  function limparFiltrosHistorico() {
+    setPesquisaHistorico("");
+    setFiltroProfessor("");
+    setFiltroDisciplina("");
+    setFiltroTurma("");
+    setFiltroData("");
   }
 
   function obterDescricaoHorario(
@@ -1338,116 +1482,334 @@ function Sumarios() {
               Ainda não existem sumários.
             </p>
           ) : (
-            <div className="table-wrapper">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Data</th>
+            <>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns:
+                    eAdministrador
+                      ? "minmax(220px, 2fr) repeat(4, minmax(150px, 1fr))"
+                      : "minmax(220px, 2fr) repeat(3, minmax(150px, 1fr))",
+                  gap: "12px",
+                  marginBottom: "14px",
+                }}
+              >
+                <div
+                  className="form-field"
+                  style={{ margin: 0 }}
+                >
+                  <label htmlFor="historico-pesquisa">
+                    Pesquisar
+                  </label>
 
-                    {eAdministrador && (
-                      <th>Professor</th>
+                  <div
+                    style={{
+                      position: "relative",
+                    }}
+                  >
+                    <Search
+                      size={17}
+                      style={{
+                        position: "absolute",
+                        left: "12px",
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        pointerEvents: "none",
+                        opacity: 0.55,
+                      }}
+                    />
+
+                    <input
+                      id="historico-pesquisa"
+                      type="search"
+                      value={pesquisaHistorico}
+                      placeholder="Conteúdo, turma, disciplina..."
+                      onChange={(event) =>
+                        setPesquisaHistorico(
+                          event.target.value,
+                        )
+                      }
+                      style={{
+                        width: "100%",
+                        paddingLeft: "38px",
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {eAdministrador && (
+                  <div
+                    className="form-field"
+                    style={{ margin: 0 }}
+                  >
+                    <label htmlFor="historico-professor">
+                      Professor
+                    </label>
+
+                    <select
+                      id="historico-professor"
+                      value={filtroProfessor}
+                      onChange={(event) =>
+                        setFiltroProfessor(
+                          event.target.value,
+                        )
+                      }
+                    >
+                      <option value="">
+                        Todos
+                      </option>
+
+                      {opcoesFiltroProfessores.map(
+                        (nome) => (
+                          <option
+                            key={nome}
+                            value={nome}
+                          >
+                            {nome}
+                          </option>
+                        ),
+                      )}
+                    </select>
+                  </div>
+                )}
+
+                <div
+                  className="form-field"
+                  style={{ margin: 0 }}
+                >
+                  <label htmlFor="historico-disciplina">
+                    Disciplina
+                  </label>
+
+                  <select
+                    id="historico-disciplina"
+                    value={filtroDisciplina}
+                    onChange={(event) =>
+                      setFiltroDisciplina(
+                        event.target.value,
+                      )
+                    }
+                  >
+                    <option value="">
+                      Todas
+                    </option>
+
+                    {opcoesFiltroDisciplinas.map(
+                      (nome) => (
+                        <option
+                          key={nome}
+                          value={nome}
+                        >
+                          {nome}
+                        </option>
+                      ),
                     )}
+                  </select>
+                </div>
 
-                    <th>Disciplina</th>
-                    <th>Turma</th>
-                    <th>Conteúdo</th>
+                <div
+                  className="form-field"
+                  style={{ margin: 0 }}
+                >
+                  <label htmlFor="historico-turma">
+                    Turma
+                  </label>
 
-                    <th className="data-table__actions">
-                      Ações
-                    </th>
-                  </tr>
-                </thead>
+                  <select
+                    id="historico-turma"
+                    value={filtroTurma}
+                    onChange={(event) =>
+                      setFiltroTurma(
+                        event.target.value,
+                      )
+                    }
+                  >
+                    <option value="">
+                      Todas
+                    </option>
 
-                <tbody>
-                  {sumariosVisiveis.map(
-                    (sumario) => {
-                      const horario =
-                        horariosDoProfessor.find(
-                          (item) =>
-                            item.id ===
-                            sumario.horario_id,
-                        );
+                    {opcoesFiltroTurmas.map(
+                      (nome) => (
+                        <option
+                          key={nome}
+                          value={nome}
+                        >
+                          {nome}
+                        </option>
+                      ),
+                    )}
+                  </select>
+                </div>
 
-                      return (
-                        <tr key={sumario.id}>
-                          <td>
-                            {formatarData(
-                              sumario.data,
-                            )}
-                          </td>
+                <div
+                  className="form-field"
+                  style={{ margin: 0 }}
+                >
+                  <label htmlFor="historico-data">
+                    Data
+                  </label>
 
-                          {eAdministrador && (
-                            <td>
-                              {horario
-                                ? obterProfessorNome(
-                                    horario.professor_id,
-                                  )
-                                : "—"}
-                            </td>
-                          )}
+                  <input
+                    id="historico-data"
+                    type="date"
+                    value={filtroData}
+                    onChange={(event) =>
+                      setFiltroData(
+                        event.target.value,
+                      )
+                    }
+                  />
+                </div>
+              </div>
 
-                          <td>
-                            {horario
-                              ? obterDisciplinaNome(
-                                  horario.disciplina_id,
-                                )
-                              : "—"}
-                          </td>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "12px",
+                  flexWrap: "wrap",
+                  marginBottom: "14px",
+                }}
+              >
+                <span className="muted-text">
+                  {sumariosHistoricoFiltrados.length}{" "}
+                  {sumariosHistoricoFiltrados.length === 1
+                    ? "sumário encontrado"
+                    : "sumários encontrados"}
+                </span>
 
-                          <td>
-                            {horario
-                              ? obterTurmaNome(
-                                  horario.turma_id,
-                                )
-                              : "—"}
-                          </td>
+                {historicoTemFiltros && (
+                  <button
+                    className="button button--secondary"
+                    type="button"
+                    onClick={limparFiltrosHistorico}
+                  >
+                    <FilterX size={17} />
+                    Limpar filtros
+                  </button>
+                )}
+              </div>
 
-                          <td className="summary-content-cell">
-                            {sumario.conteudo}
-                          </td>
+              {sumariosHistoricoFiltrados.length === 0 ? (
+                <p className="muted-text">
+                  Não existem sumários com estes filtros.
+                </p>
+              ) : (
+                <div className="table-wrapper">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Data</th>
 
-                          <td className="data-table__actions">
-                            <button
-                              className="icon-button"
-                              type="button"
-                              title={
-                                eAdministrador
-                                  ? "Editar"
-                                  : "Ver sumário"
-                              }
-                              onClick={() =>
-                                abrirSumarioDoHistorico(sumario)
-                              }
-                            >
-                              {eAdministrador ? (
-                                <Pencil size={18} />
-                              ) : (
-                                <Eye size={18} />
+                        {eAdministrador && (
+                          <th>Professor</th>
+                        )}
+
+                        <th>Disciplina</th>
+                        <th>Turma</th>
+                        <th>Conteúdo</th>
+
+                        <th className="data-table__actions">
+                          Ações
+                        </th>
+                      </tr>
+                    </thead>
+
+                    <tbody>
+                      {sumariosHistoricoFiltrados.map(
+                        (sumario) => {
+                          const horario =
+                            horariosDoProfessor.find(
+                              (item) =>
+                                item.id ===
+                                sumario.horario_id,
+                            );
+
+                          return (
+                            <tr key={sumario.id}>
+                              <td>
+                                {formatarData(
+                                  sumario.data,
+                                )}
+                              </td>
+
+                              {eAdministrador && (
+                                <td>
+                                  {horario
+                                    ? obterProfessorNome(
+                                        horario.professor_id,
+                                      )
+                                    : "—"}
+                                </td>
                               )}
-                            </button>
 
-                            {eAdministrador && (
-                              <button
-                                className="icon-button icon-button--danger"
-                                type="button"
-                                title="Eliminar"
-                                onClick={() =>
-                                  removerSumario(
-                                    sumario,
-                                  )
-                                }
-                              >
-                                <Trash2 size={18} />
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    },
-                  )}
-                </tbody>
-              </table>
-            </div>
+                              <td>
+                                {horario
+                                  ? obterDisciplinaNome(
+                                      horario.disciplina_id,
+                                    )
+                                  : "—"}
+                              </td>
+
+                              <td>
+                                {horario
+                                  ? obterTurmaNome(
+                                      horario.turma_id,
+                                    )
+                                  : "—"}
+                              </td>
+
+                              <td className="summary-content-cell">
+                                {sumario.conteudo}
+                              </td>
+
+                              <td className="data-table__actions">
+                                <button
+                                  className="icon-button"
+                                  type="button"
+                                  title={
+                                    eAdministrador
+                                      ? "Editar"
+                                      : "Ver sumário"
+                                  }
+                                  onClick={() =>
+                                    abrirSumarioDoHistorico(
+                                      sumario,
+                                    )
+                                  }
+                                >
+                                  {eAdministrador ? (
+                                    <Pencil size={18} />
+                                  ) : (
+                                    <Eye size={18} />
+                                  )}
+                                </button>
+
+                                {eAdministrador && (
+                                  <button
+                                    className="icon-button icon-button--danger"
+                                    type="button"
+                                    title="Eliminar"
+                                    onClick={() =>
+                                      removerSumario(
+                                        sumario,
+                                      )
+                                    }
+                                  >
+                                    <Trash2 size={18} />
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        },
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
           )}
         </div>
       </section>

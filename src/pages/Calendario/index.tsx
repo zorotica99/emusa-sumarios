@@ -525,18 +525,24 @@ function Calendario() {
       );
     }
 
+    return null;
+  }
+
+  function obterFeriado(
+    data: string,
+  ): DiaSemAulas | null {
     const feriado =
       encontrarFeriadoPortugal(
         data,
       );
 
-    if (feriado) {
-      return converterFeriado(
-        feriado,
-      );
+    if (!feriado) {
+      return null;
     }
 
-    return null;
+    return converterFeriado(
+      feriado,
+    );
   }
 
   function existeSumario(
@@ -803,11 +809,16 @@ function Calendario() {
                   dia.data,
                 );
 
+              const feriado =
+                obterFeriado(
+                  dia.data,
+                );
+
               return (
                 <article
                   className={[
                     "calendar-day",
-                    diaSemAulas
+                    diaSemAulas || feriado
                       ? "calendar-day--blocked"
                       : "",
                     dia.eHoje
@@ -877,13 +888,36 @@ function Calendario() {
                           Sem aulas
                         </small>
                       </div>
-                    ) : horariosDoDia.length ===
-                      0 ? (
-                      <p className="calendar-day__empty">
-                        Sem aulas.
-                      </p>
                     ) : (
-                      horariosDoDia.map(
+                      <>
+                        {feriado && (
+                          <div className="calendar-interruption">
+                            <div className="calendar-interruption__icon">
+                              <CalendarOff
+                                size={24}
+                              />
+                            </div>
+
+                            <span>
+                              {
+                                feriado.tipo
+                              }
+                            </span>
+
+                            <strong>
+                              {
+                                feriado.titulo
+                              }
+                            </strong>
+                          </div>
+                        )}
+
+                        {horariosDoDia.length === 0 ? (
+                          <p className="calendar-day__empty">
+                            Sem aulas.
+                          </p>
+                        ) : (
+                          horariosDoDia.map(
                         (horario) => {
                           const sumarioPreenchido =
                             existeSumario(
@@ -1080,7 +1114,9 @@ function Calendario() {
                             </article>
                           );
                         },
-                      )
+                          )
+                        )}
+                      </>
                     )}
                   </div>
                 </article>
