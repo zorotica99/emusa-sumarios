@@ -196,6 +196,8 @@ function Sumarios() {
   const [aCarregarUltimo, setACarregarUltimo] =
     useState(false);
   const [aGuardar, setAGuardar] = useState(false);
+  const [confirmacaoLacrarAberta, setConfirmacaoLacrarAberta] =
+    useState(false);
 
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState("");
@@ -968,6 +970,73 @@ function Sumarios() {
     setSucesso("");
   }
 
+  async function executarGravacaoSumario() {
+    try {
+      setAGuardar(true);
+      setErro("");
+      setSucesso("");
+
+      const estavaAEditar =
+        Boolean(sumarioEmEdicao);
+
+      if (sumarioEmEdicao) {
+        await atualizarSumario(
+          sumarioEmEdicao.id,
+          formulario,
+        );
+      } else {
+        await criarSumario(formulario);
+      }
+
+      await guardarPresencasEmLote(
+        formulario.horarioId,
+        formulario.data,
+        alunosDoHorario.map((aluno) => ({
+          alunoId: aluno.id,
+          estado:
+            estadosPresenca[aluno.id] ??
+            "Presente",
+        })),
+      );
+
+      setConfirmacaoLacrarAberta(false);
+      limparFormulario();
+      await carregarDados();
+
+      setSucesso(
+        estavaAEditar
+          ? "Sumário e presenças atualizados com sucesso."
+          : eAdministrador
+            ? "Sumário e presenças guardados com sucesso."
+            : "Sumário lacrado com sucesso.",
+      );
+    } catch (error) {
+      const mensagem = obterMensagemErro(
+        error,
+        "Não foi possível guardar o sumário.",
+      );
+
+      if (
+        !eAdministrador &&
+        horarioSelecionado &&
+        !professorPodeRegistarAula(
+          formulario.data,
+          horarioSelecionado,
+        )
+      ) {
+        setErro(
+          `Este sumário poderá ser preenchido a partir de ${formatarData(
+            formulario.data,
+          )} às ${horarioSelecionado.hora_inicio.slice(0, 5)}, quando a aula começar.`,
+        );
+      } else {
+        setErro(mensagem);
+      }
+    } finally {
+      setAGuardar(false);
+    }
+  }
+
   async function guardarSumario(
     event: FormEvent<HTMLFormElement>,
   ) {
@@ -975,7 +1044,7 @@ function Sumarios() {
 
     if (sumarioBloqueadoParaProfessor) {
       setErro(
-        "Depois de guardado, o sumário fica disponível apenas para consulta. Para corrigir um sumário, contacte o administrador.",
+        "Depois de lacrado, o sumário fica disponível apenas para consulta. Para corrigir um sumário, contacte o administrador.",
       );
       return;
     }
@@ -1040,67 +1109,27 @@ function Sumarios() {
       return;
     }
 
-    try {
-      setAGuardar(true);
-      setErro("");
-      setSucesso("");
+    setErro("");
+    setSucesso("");
 
-      const estavaAEditar =
-        Boolean(sumarioEmEdicao);
-
-      if (sumarioEmEdicao) {
-        await atualizarSumario(
-          sumarioEmEdicao.id,
-          formulario,
-        );
-      } else {
-        await criarSumario(formulario);
-      }
-
-      await guardarPresencasEmLote(
-        formulario.horarioId,
-        formulario.data,
-        alunosDoHorario.map((aluno) => ({
-          alunoId: aluno.id,
-          estado:
-            estadosPresenca[aluno.id] ??
-            "Presente",
-        })),
-      );
-
-      limparFormulario();
-      await carregarDados();
-
-      setSucesso(
-        estavaAEditar
-          ? "Sumário e presenças atualizados com sucesso."
-          : "Sumário e presenças guardados com sucesso.",
-      );
-    } catch (error) {
-      const mensagem = obterMensagemErro(
-        error,
-        "Não foi possível guardar o sumário.",
-      );
-
-      if (
-        !eAdministrador &&
-        horarioSelecionado &&
-        !professorPodeRegistarAula(
-          formulario.data,
-          horarioSelecionado,
-        )
-      ) {
-        setErro(
-          `Este sumário poderá ser preenchido a partir de ${formatarData(
-            formulario.data,
-          )} às ${horarioSelecionado.hora_inicio.slice(0, 5)}, quando a aula começar.`,
-        );
-      } else {
-        setErro(mensagem);
-      }
-    } finally {
-      setAGuardar(false);
+    if (!eAdministrador) {
+      setConfirmacaoLacrarAberta(true);
+      return;
     }
+
+    await executarGravacaoSumario();
+  }
+
+  async function confirmarLacrarSumario() {
+    await executarGravacaoSumario();
+  }
+
+  function reverSumario() {
+    if (aGuardar) {
+      return;
+    }
+
+    setConfirmacaoLacrarAberta(false);
   }
 
   function abrirSumarioDoHistorico(sumario: Sumario) {
@@ -1486,7 +1515,7 @@ function Sumarios() {
               <div className="summary-date-info">
                 <Eye size={18} />
                 <span>
-                  Este sumário já foi guardado e está disponível apenas para consulta.
+                  Este sumário está lacrado e disponível apenas para consulta.
                 </span>
               </div>
             )}
@@ -1880,6 +1909,88 @@ function Sumarios() {
           )}
         </div>
       </section>
+
+      {confirmacaoLacrarAberta && (
+        <div
+          role="presentation"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px",
+            background: "rgba(15, 23, 42, 0.48)",
+          }}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              reverSumario();
+            }
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="lacrar-sumario-titulo"
+            style={{
+              width: "min(100%, 460px)",
+              borderRadius: "18px",
+              background: "var(--surface, #ffffff)",
+              boxShadow:
+                "0 24px 70px rgba(15, 23, 42, 0.24)",
+              padding: "24px",
+            }}
+          >
+            <h2
+              id="lacrar-sumario-titulo"
+              style={{
+                margin: "0 0 10px",
+              }}
+            >
+              Lacrar este sumário?
+            </h2>
+
+            <p
+              style={{
+                margin: "0 0 22px",
+                lineHeight: 1.6,
+              }}
+            >
+              Depois de lacrado, deixa de poder alterar
+              este sumário. Se quiser confirmar o
+              conteúdo antes de o fechar, escolha Rever.
+            </p>
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "10px",
+                flexWrap: "wrap",
+              }}
+            >
+              <button
+                className="button button--secondary"
+                type="button"
+                disabled={aGuardar}
+                onClick={reverSumario}
+              >
+                Rever
+              </button>
+
+              <button
+                className="button button--primary"
+                type="button"
+                disabled={aGuardar}
+                onClick={confirmarLacrarSumario}
+              >
+                {aGuardar ? "A lacrar..." : "Lacrar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

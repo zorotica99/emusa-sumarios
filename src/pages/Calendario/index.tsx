@@ -24,6 +24,10 @@ import PageHeader from "../../components/common/PageHeader";
 import SelectField from "../../components/forms/SelectField";
 import { useAuth } from "../../hooks/useAuth";
 import {
+  obterAnoLetivoAtivo,
+  type AnoLetivo,
+} from "../../services/anosLetivos.service";
+import {
   listarDisciplinas,
   type Disciplina,
 } from "../../services/disciplinas.service";
@@ -288,6 +292,11 @@ function Calendario() {
   ] = useState<Instrumento[]>([]);
 
   const [
+    anoLetivoAtivo,
+    setAnoLetivoAtivo,
+  ] = useState<AnoLetivo | null>(null);
+
+  const [
     professorFiltro,
     setProfessorFiltro,
   ] = useState("");
@@ -337,6 +346,7 @@ function Calendario() {
             dadosTurmas,
             dadosDisciplinas,
             dadosInstrumentos,
+            dadosAnoLetivoAtivo,
           ] = await Promise.all([
             listarHorarios(),
             listarHorariosAlunos(),
@@ -347,6 +357,7 @@ function Calendario() {
             listarTurmas(),
             listarDisciplinas(),
             listarInstrumentos(),
+            obterAnoLetivoAtivo(),
           ]);
 
           setHorarios(
@@ -383,6 +394,10 @@ function Calendario() {
 
           setInstrumentos(
             dadosInstrumentos,
+          );
+
+          setAnoLetivoAtivo(
+            dadosAnoLetivoAtivo,
           );
         } catch (error) {
           setErro(
@@ -508,6 +523,19 @@ function Calendario() {
           b.hora_inicio,
         ),
       );
+  }
+
+  function dataPertenceAoAnoLetivoAtivo(
+    data: string,
+  ): boolean {
+    if (!anoLetivoAtivo) {
+      return false;
+    }
+
+    return (
+      data >= anoLetivoAtivo.data_inicio &&
+      data <= anoLetivoAtivo.data_fim
+    );
   }
 
   function obterDiaSemAulas(
@@ -814,11 +842,18 @@ function Calendario() {
                   dia.data,
                 );
 
+              const dentroAnoLetivo =
+                dataPertenceAoAnoLetivoAtivo(
+                  dia.data,
+                );
+
               return (
                 <article
                   className={[
                     "calendar-day",
-                    diaSemAulas || feriado
+                    diaSemAulas ||
+                    feriado ||
+                    !dentroAnoLetivo
                       ? "calendar-day--blocked"
                       : "",
                     dia.eHoje
@@ -849,14 +884,37 @@ function Calendario() {
                     </div>
 
                     <span>
-                      {diaSemAulas
+                      {!dentroAnoLetivo ||
+                      diaSemAulas
                         ? 0
                         : horariosDoDia.length}
                     </span>
                   </header>
 
                   <div className="calendar-day__content">
-                    {diaSemAulas ? (
+                    {!dentroAnoLetivo ? (
+                      <div className="calendar-interruption">
+                        <div className="calendar-interruption__icon">
+                          <CalendarOff
+                            size={24}
+                          />
+                        </div>
+
+                        <span>
+                          Ano letivo
+                        </span>
+
+                        <strong>
+                          Fora do período letivo
+                        </strong>
+
+                        {anoLetivoAtivo && (
+                          <small>
+                            {anoLetivoAtivo.nome}
+                          </small>
+                        )}
+                      </div>
+                    ) : diaSemAulas ? (
                       <div className="calendar-interruption">
                         <div className="calendar-interruption__icon">
                           <CalendarOff
