@@ -668,6 +668,57 @@ function Sumarios() {
     );
   }
 
+  function obterAlunosDoHorarioParaHistorico(
+    horario: Horario | undefined,
+  ): Aluno[] {
+    if (!horario) {
+      return [];
+    }
+
+    if (horario.tipo_aula === "Turma") {
+      const idsDaTurma = alunosTurmas
+        .filter(
+          (registo) => registo.turma_id === horario.turma_id,
+        )
+        .map((registo) => registo.aluno_id);
+
+      return alunos
+        .filter((aluno) => idsDaTurma.includes(aluno.id))
+        .sort((a, b) => a.nome.localeCompare(b.nome));
+    }
+
+    const idsDoHorario = horariosAlunos
+      .filter(
+        (registo) => registo.horario_id === horario.id,
+      )
+      .map((registo) => registo.aluno_id);
+
+    return alunos
+      .filter((aluno) => idsDoHorario.includes(aluno.id))
+      .sort((a, b) => a.nome.localeCompare(b.nome));
+  }
+
+  function obterAlunosHistorico(
+    horario: Horario | undefined,
+  ): string {
+    const participantes =
+      obterAlunosDoHorarioParaHistorico(horario);
+
+    if (participantes.length === 0) {
+      return "—";
+    }
+
+    if (horario?.tipo_aula === "Turma") {
+      return `${participantes.length} ${
+        participantes.length === 1 ? "aluno" : "alunos"
+      }`;
+    }
+
+    return participantes
+      .map((aluno) => aluno.nome)
+      .join(", ");
+  }
+
   const opcoesFiltroProfessores = useMemo(() => {
     const nomes = new Set<string>();
 
@@ -742,6 +793,11 @@ function Sumarios() {
         ? obterTurmaNome(horario.turma_id)
         : "—";
 
+      const nomesAlunos =
+        obterAlunosDoHorarioParaHistorico(horario)
+          .map((aluno) => aluno.nome)
+          .join(" ");
+
       const correspondePesquisa =
         !termo ||
         [
@@ -750,6 +806,7 @@ function Sumarios() {
           professor,
           disciplina,
           turma,
+          nomesAlunos,
           sumario.conteudo,
         ]
           .join(" ")
@@ -782,6 +839,9 @@ function Sumarios() {
     professores,
     disciplinas,
     turmas,
+    alunos,
+    alunosTurmas,
+    horariosAlunos,
     pesquisaHistorico,
     filtroProfessor,
     filtroDisciplina,
@@ -1523,7 +1583,7 @@ function Sumarios() {
                       id="historico-pesquisa"
                       type="search"
                       value={pesquisaHistorico}
-                      placeholder="Conteúdo, turma, disciplina..."
+                      placeholder="Aluno, conteúdo, turma, disciplina..."
                       onChange={(event) =>
                         setPesquisaHistorico(
                           event.target.value,
@@ -1708,6 +1768,7 @@ function Sumarios() {
 
                         <th>Disciplina</th>
                         <th>Turma</th>
+                        <th>Aluno(s)</th>
                         <th>Conteúdo</th>
 
                         <th className="data-table__actions">
@@ -1758,6 +1819,12 @@ function Sumarios() {
                                       horario.turma_id,
                                     )
                                   : "—"}
+                              </td>
+
+                              <td>
+                                {obterAlunosHistorico(
+                                  horario,
+                                )}
                               </td>
 
                               <td className="summary-content-cell">
