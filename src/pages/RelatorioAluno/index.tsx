@@ -177,6 +177,9 @@ function RelatorioAluno() {
   const [dataFim, setDataFim] =
     useState(obterDataHoje());
 
+  const [ambitoRelatorio, setAmbitoRelatorio] =
+    useState("todas");
+
   const [aCarregar, setACarregar] =
     useState(true);
 
@@ -346,9 +349,22 @@ function RelatorioAluno() {
   );
 
   const horarioIdsDoAluno = useMemo(
-    () =>
-      new Set(
-        horariosAlunos
+    () => {
+      const ids = new Set<string>();
+
+      horariosAlunos
+        .filter(
+          (registo) =>
+            registo.aluno_id ===
+            alunoId,
+        )
+        .forEach(
+          (registo) =>
+            ids.add(registo.horario_id),
+        );
+
+      const turmaIdsDoAluno = new Set(
+        alunosTurmas
           .filter(
             (registo) =>
               registo.aluno_id ===
@@ -356,11 +372,29 @@ function RelatorioAluno() {
           )
           .map(
             (registo) =>
-              registo.horario_id,
+              registo.turma_id,
           ),
-      ),
+      );
+
+      horarios
+        .filter(
+          (horario) =>
+            horario.tipo_aula === "Turma" &&
+            turmaIdsDoAluno.has(
+              horario.turma_id,
+            ),
+        )
+        .forEach(
+          (horario) =>
+            ids.add(horario.id),
+        );
+
+      return ids;
+    },
     [
       horariosAlunos,
+      alunosTurmas,
+      horarios,
       alunoId,
     ],
   );
@@ -379,10 +413,105 @@ function RelatorioAluno() {
     ],
   );
 
-  const professoresDoAluno =
+  const opcoesAmbitoRelatorio = useMemo(() => {
+    const mapa = new Map<
+      string,
+      {
+        value: string;
+        label: string;
+      }
+    >();
+
+    horariosDoAluno.forEach(
+      (horario) => {
+        const disciplina =
+          disciplinas.find(
+            (item) =>
+              item.id ===
+              horario.disciplina_id,
+          );
+
+        if (!disciplina) {
+          return;
+        }
+
+        const value =
+          `disciplina:${disciplina.id}`;
+
+        if (!mapa.has(value)) {
+          mapa.set(value, {
+            value,
+            label: disciplina.nome,
+          });
+        }
+      },
+    );
+
+    return [
+      {
+        value: "todas",
+        label: "Todas as aulas",
+      },
+      ...Array.from(mapa.values()).sort(
+        (a, b) =>
+          a.label.localeCompare(
+            b.label,
+            "pt",
+          ),
+      ),
+    ];
+  }, [
+    horariosDoAluno,
+    disciplinas,
+  ]);
+
+  useEffect(() => {
+    setAmbitoRelatorio("todas");
+  }, [alunoId]);
+
+  const horariosDoAmbito = useMemo(() => {
+    if (ambitoRelatorio === "todas") {
+      return horariosDoAluno;
+    }
+
+    if (
+      ambitoRelatorio.startsWith(
+        "disciplina:",
+      )
+    ) {
+      const disciplinaId =
+        ambitoRelatorio.replace(
+          "disciplina:",
+          "",
+        );
+
+      return horariosDoAluno.filter(
+        (horario) =>
+          horario.disciplina_id ===
+          disciplinaId,
+      );
+    }
+
+    return horariosDoAluno;
+  }, [
+    horariosDoAluno,
+    ambitoRelatorio,
+  ]);
+
+  const horarioIdsDoAmbito = useMemo(
+    () =>
+      new Set(
+        horariosDoAmbito.map(
+          (horario) => horario.id,
+        ),
+      ),
+    [horariosDoAmbito],
+  );
+
+  const professoresDoRelatorio =
     useMemo(() => {
       const ids = new Set(
-        horariosDoAluno.map(
+        horariosDoAmbito.map(
           (horario) =>
             horario.professor_id,
         ),
@@ -397,12 +526,32 @@ function RelatorioAluno() {
             professor.nome,
         )
         .sort((a, b) =>
-          a.localeCompare(b),
+          a.localeCompare(
+            b,
+            "pt",
+          ),
         );
     }, [
-      horariosDoAluno,
+      horariosDoAmbito,
       professores,
     ]);
+
+  const nomeAmbitoRelatorio = useMemo(() => {
+    if (ambitoRelatorio === "todas") {
+      return "Todas as aulas";
+    }
+
+    return (
+      opcoesAmbitoRelatorio.find(
+        (item) =>
+          item.value ===
+          ambitoRelatorio,
+      )?.label ?? "Todas as aulas"
+    );
+  }, [
+    ambitoRelatorio,
+    opcoesAmbitoRelatorio,
+  ]);
 
   const presencasFiltradas =
     useMemo(() => {
@@ -415,6 +564,9 @@ function RelatorioAluno() {
           (presenca) =>
             presenca.aluno_id ===
               alunoId &&
+            horarioIdsDoAmbito.has(
+              presenca.horario_id,
+            ) &&
             presenca.data >=
               dataInicio &&
             presenca.data <= dataFim,
@@ -429,6 +581,7 @@ function RelatorioAluno() {
       alunoId,
       dataInicio,
       dataFim,
+      horarioIdsDoAmbito,
     ]);
 
   const sumariosFiltrados =
@@ -440,7 +593,7 @@ function RelatorioAluno() {
       return todosSumarios
         .filter(
           (sumario) =>
-            horarioIdsDoAluno.has(
+            horarioIdsDoAmbito.has(
               sumario.horario_id,
             ) &&
             sumario.data >=
@@ -454,11 +607,119 @@ function RelatorioAluno() {
         );
     }, [
       todosSumarios,
-      horarioIdsDoAluno,
+      horarioIdsDoAmbito,
       alunoId,
       dataInicio,
       dataFim,
     ]);
+
+  const sumariosPorDisciplina = useMemo(() => {
+    const grupos = new Map<
+      string,
+      {
+        disciplinaId: string;
+        disciplinaNome: string;
+        sumarios: Sumario[];
+        professores: string[];
+      }
+    >();
+
+    sumariosFiltrados.forEach(
+      (sumario) => {
+        const horario =
+          horarios.find(
+            (item) =>
+              item.id ===
+              sumario.horario_id,
+          );
+
+        if (!horario) {
+          return;
+        }
+
+        const disciplinaNome =
+          disciplinas.find(
+            (disciplina) =>
+              disciplina.id ===
+              horario.disciplina_id,
+          )?.nome ?? "Disciplina";
+
+        if (
+          !grupos.has(
+            horario.disciplina_id,
+          )
+        ) {
+          grupos.set(
+            horario.disciplina_id,
+            {
+              disciplinaId:
+                horario.disciplina_id,
+              disciplinaNome,
+              sumarios: [],
+              professores: [],
+            },
+          );
+        }
+
+        const grupo = grupos.get(
+          horario.disciplina_id,
+        )!;
+
+        grupo.sumarios.push(sumario);
+
+        const professor =
+          professores.find(
+            (item) =>
+              item.id ===
+              horario.professor_id,
+          )?.nome;
+
+        if (
+          professor &&
+          !grupo.professores.includes(
+            professor,
+          )
+        ) {
+          grupo.professores.push(
+            professor,
+          );
+        }
+      },
+    );
+
+    return Array.from(
+      grupos.values(),
+    )
+      .map((grupo) => ({
+        ...grupo,
+        professores:
+          grupo.professores.sort(
+            (a, b) =>
+              a.localeCompare(
+                b,
+                "pt",
+              ),
+          ),
+        sumarios:
+          [...grupo.sumarios].sort(
+            (a, b) =>
+              b.data.localeCompare(
+                a.data,
+              ),
+          ),
+      }))
+      .sort((a, b) =>
+        a.disciplinaNome.localeCompare(
+          b.disciplinaNome,
+          "pt",
+        ),
+      );
+  }, [
+    sumariosFiltrados,
+    horarios,
+    disciplinas,
+    professores,
+  ]);
 
   const totais = useMemo(() => {
     const total =
@@ -624,6 +885,21 @@ function RelatorioAluno() {
           onChange={setAlunoId}
         />
 
+        <SelectField
+          id="relatorio-ambito"
+          label="Aulas a incluir"
+          value={ambitoRelatorio}
+          options={opcoesAmbitoRelatorio}
+          placeholder="Todas as aulas"
+          disabled={
+            aCarregar ||
+            !alunoId
+          }
+          onChange={
+            setAmbitoRelatorio
+          }
+        />
+
         <div className="form-field">
           <label htmlFor="relatorio-data-inicio">
             Data inicial
@@ -732,6 +1008,8 @@ function RelatorioAluno() {
                 {formatarData(dataInicio)}
                 {" e "}
                 {formatarData(dataFim)}
+                {" · "}
+                {nomeAmbitoRelatorio}
               </p>
             </div>
 
@@ -779,9 +1057,9 @@ function RelatorioAluno() {
                 </span>
 
                 <strong>
-                  {professoresDoAluno.length >
+                  {professoresDoRelatorio.length >
                   0
-                    ? professoresDoAluno.join(
+                    ? professoresDoRelatorio.join(
                         ", ",
                       )
                     : "Não definido"}
@@ -833,73 +1111,131 @@ function RelatorioAluno() {
                     {sumariosFiltrados.length}
                     {" "}
                     registo
-                    {sumariosFiltrados.length ===
-                    1
+                    {sumariosFiltrados.length === 1
                       ? ""
                       : "s"}
                   </p>
                 </div>
               </header>
 
-              {sumariosFiltrados.length ===
-              0 ? (
+              {sumariosFiltrados.length === 0 ? (
                 <p className="muted-text">
                   Não existem sumários neste período.
                 </p>
               ) : (
                 <div className="student-summary-list">
-                  {sumariosFiltrados.map(
-                    (sumario) => {
-                      const horario =
-                        obterHorario(
-                          sumario.horario_id,
-                        );
-
-                      return (
-                        <article
-                          className="student-summary-entry"
-                          key={sumario.id}
+                  {sumariosPorDisciplina.map(
+                    (grupo) => (
+                      <section
+                        key={
+                          grupo.disciplinaId
+                        }
+                        style={{
+                          marginBottom: "18px",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent:
+                              "space-between",
+                            gap: "12px",
+                            alignItems:
+                              "flex-start",
+                            marginBottom:
+                              "10px",
+                            paddingBottom:
+                              "8px",
+                            borderBottom:
+                              "1px solid var(--border, #dbe3ef)",
+                          }}
                         >
-                          <div className="student-summary-entry__date">
-                            <CalendarDays
-                              size={18}
-                            />
-
+                          <div>
                             <strong>
-                              {formatarData(
-                                sumario.data,
-                              )}
+                              {
+                                grupo.disciplinaNome
+                              }
                             </strong>
-                          </div>
 
-                          <div className="student-summary-entry__content">
-                            <div>
-                              <strong>
-                                {horario
-                                  ? obterDisciplinaNome(
-                                      horario.disciplina_id,
-                                    )
-                                  : "Disciplina"}
-                              </strong>
-
-                              <span>
-                                {horario
-                                  ? `${obterProfessorNome(
-                                      horario.professor_id,
-                                    )} · ${obterTurmaNome(
-                                      horario.turma_id,
-                                    )}`
-                                  : "—"}
-                              </span>
+                            <div className="muted-text">
+                              {grupo.sumarios.length}{" "}
+                              {grupo.sumarios.length ===
+                              1
+                                ? "sumário"
+                                : "sumários"}
                             </div>
-
-                            <p>
-                              {sumario.conteudo}
-                            </p>
                           </div>
-                        </article>
-                      );
-                    },
+
+                          <div
+                            className="muted-text"
+                            style={{
+                              textAlign:
+                                "right",
+                            }}
+                          >
+                            {grupo.professores.join(
+                              ", ",
+                            )}
+                          </div>
+                        </div>
+
+                        {grupo.sumarios.map(
+                          (sumario) => {
+                            const horario =
+                              obterHorario(
+                                sumario.horario_id,
+                              );
+
+                            return (
+                              <article
+                                className="student-summary-entry"
+                                key={
+                                  sumario.id
+                                }
+                              >
+                                <div className="student-summary-entry__date">
+                                  <CalendarDays
+                                    size={18}
+                                  />
+
+                                  <strong>
+                                    {formatarData(
+                                      sumario.data,
+                                    )}
+                                  </strong>
+                                </div>
+
+                                <div className="student-summary-entry__content">
+                                  <div>
+                                    <strong>
+                                      {
+                                        grupo.disciplinaNome
+                                      }
+                                    </strong>
+
+                                    <span>
+                                      {horario
+                                        ? `${obterProfessorNome(
+                                            horario.professor_id,
+                                          )} · ${obterTurmaNome(
+                                            horario.turma_id,
+                                          )}`
+                                        : "—"}
+                                    </span>
+                                  </div>
+
+                                  <p>
+                                    {
+                                      sumario.conteudo
+                                    }
+                                  </p>
+                                </div>
+                              </article>
+                            );
+                          },
+                        )}
+                      </section>
+                    ),
                   )}
                 </div>
               )}
